@@ -1,0 +1,15 @@
+081109 203518 143 INFO dfs.DataNode$DataXceiver: Receiving block blk_-1608999687919862906 src: /10.250.19.102:54106 dest: /10.250.19.102:50010
+081109 203518 148 INFO dfs.DataNode$DataXceiver: Receiving block blk_-1608999687919862906 src: /10.250.19.102:54108 dest: /10.250.19.102:50010
+081109 203519 150 INFO dfs.DataNode$PacketResponder: PacketResponder 1 for block blk_-1608999687919862906 terminating
+081109 203520 148 INFO dfs.DataNode$DataXceiver: Receiving block blk_3540344223099725891 src: /10.250.10.6:49890 dest: /10.250.10.6:50010
+081109 203521 148 INFO dfs.DataNode$PacketResponder: PacketResponder 2 for block blk_3540344223099725891 terminating
+081109 203522 143 INFO dfs.DataNode$DataXceiver: Receiving block blk_-1608999687919862906 src: /10.250.19.102:54110 dest: /10.250.19.102:50010
+081109 203522 148 WARN dfs.DataNode: DataNode lost connection to block blk_-1608999687919862906
+081109 203523 148 ERROR dfs.DataNode: DataNode error processing block blk_-1608999687919862906
+081109 203524 150 INFO dfs.DataNode$PacketResponder: PacketResponder 3 for block blk_-1608999687919862906 terminating
+081109 203525 151 INFO dfs.FSNamesystem: BLOCK* NameSystem.allocateBlock: /user/root/randtxt4/_temporary/_task_200811092030_0001_m_000005_0/part-00005. blk_-8611209185556947820
+081109 203526 143 INFO dfs.DataNode$DataXceiver: Receiving block blk_5080623248220211130 src: /10.251.73.220:54338 dest: /10.251.73.220:50010
+081109 203527 143 INFO dfs.DataNode$PacketResponder: PacketResponder 1 for block blk_5080623248220211130 terminating
+081109 203528 148 INFO dfs.DataNode$DataXceiver: Receiving block blk_3540344223099725891 src: /10.250.10.6:49892 dest: /10.250.10.6:50010
+081109 203529 148 INFO dfs.DataNode$PacketResponder: PacketResponder 2 for block blk_3540344223099725891 terminating
+081109 203530 150 INFO dfs.DataNode$DataXceiver: Receiving block blk_-1608999687919862906 src: /10.250.19.102:54112 dest: /10.250.19.102:50010

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.DS_Store
+
+# Virtual environment
+venv/
+
+# Large data files
+data/HDFS.log
+data/HDFS_1.tar
+data/HDFS_1.tar.gz.download/
+data/*.tar.gz
+data/*.tar
+
+# Jupyter
+.ipynb_checkpoints/
