@@ -1,0 +1,5 @@
+Model,Recall@1,Recall@5,Recall@10,MRR,nDCG@5,nDCG@10,Silhouette,Davies-Bouldin,Calinski-Harabasz,Encode (ms),Memory (MB),Throughput,Noise Drop %
+all-MiniLM-L6-v2,0.005,0.028,0.050,0.029,0.016,0.023,0.208,1.712,46.1,180.2,0.3,1087,0.0
+all-mpnet-base-v2,0.006,0.031,0.056,0.033,0.019,0.027,0.249,1.431,50.5,2043.2,0.6,96,0.0
+BAAI/bge-base-en-v1.5,0.009,0.037,0.061,0.032,0.022,0.030,0.192,1.735,28.5,925.9,0.6,212,0.0
+intfloat/e5-base-v2,0.005,0.023,0.048,0.025,0.015,0.022,0.184,1.877,27.5,633.2,0.6,310,0.0
