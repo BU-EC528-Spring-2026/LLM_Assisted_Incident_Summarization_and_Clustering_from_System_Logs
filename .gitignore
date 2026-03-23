@@ -18,3 +18,5 @@ data/chroma_db
 
 # Jupyter
 .ipynb_checkpoints/
+
+.DS_Store
