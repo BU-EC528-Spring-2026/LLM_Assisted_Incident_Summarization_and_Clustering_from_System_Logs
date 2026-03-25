@@ -9,6 +9,23 @@ seaborn>=0.12.0
 # Jupyter
 jupyter>=1.0.0
 ipython>=8.12.0
+ipykernel
+
+# embeddings
+sentence-transformers
+
+# Clustering
+scikit-learn
+hdbscan
+umap-learn
+
+# llm
+openai
+dot-env
+
+# ui
+streamlit
+fastapi
 
 # For later stages (LLM, embeddings, clustering)
 # Uncomment as needed

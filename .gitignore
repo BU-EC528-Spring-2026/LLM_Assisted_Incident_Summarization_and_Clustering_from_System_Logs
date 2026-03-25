@@ -6,7 +6,8 @@ __pycache__/
 .DS_Store
 
 # Virtual environment
-venv/
+.venv311/
+env
 
 # Large data files
 data/HDFS.log
@@ -14,6 +15,9 @@ data/HDFS_1.tar
 data/HDFS_1.tar.gz.download/
 data/*.tar.gz
 data/*.tar
+
+#results files
+results/
 
 # Jupyter
 .ipynb_checkpoints/

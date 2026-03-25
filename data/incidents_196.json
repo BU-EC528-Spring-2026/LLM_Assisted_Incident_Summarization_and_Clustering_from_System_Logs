@@ -8,11 +8,11 @@
     "num_logs": 191,
     "severity": "INFO",
     "components": [
-      "dfs.DataNode$DataTransfer",
-      "dfs.DataNode$PacketResponder",
-      "dfs.DataNode$DataXceiver",
       "dfs.DataNode",
-      "dfs.FSNamesystem"
+      "dfs.FSNamesystem",
+      "dfs.DataNode$PacketResponder",
+      "dfs.DataNode$DataTransfer",
+      "dfs.DataNode$DataXceiver"
     ],
     "logs": [
       {
@@ -1937,8 +1937,8 @@
     "severity": "INFO",
     "components": [
       "dfs.FSNamesystem",
-      "dfs.DataNode$PacketResponder",
-      "dfs.DataNode$DataXceiver"
+      "dfs.DataNode$DataXceiver",
+      "dfs.DataNode$PacketResponder"
     ],
     "logs": [
       {
@@ -2093,8 +2093,8 @@
     "severity": "INFO",
     "components": [
       "dfs.FSNamesystem",
-      "dfs.DataNode$PacketResponder",
-      "dfs.DataNode$DataXceiver"
+      "dfs.DataNode$DataXceiver",
+      "dfs.DataNode$PacketResponder"
     ],
     "logs": [
       {
@@ -3839,8 +3839,8 @@
     "severity": "INFO",
     "components": [
       "dfs.FSNamesystem",
-      "dfs.DataNode$PacketResponder",
-      "dfs.DataNode$DataXceiver"
+      "dfs.DataNode$DataXceiver",
+      "dfs.DataNode$PacketResponder"
     ],
     "logs": [
       {
@@ -10189,8 +10189,8 @@
     "num_logs": 3,
     "severity": "INFO",
     "components": [
-      "dfs.DataNode$DataXceiver",
-      "dfs.FSNamesystem"
+      "dfs.FSNamesystem",
+      "dfs.DataNode$DataXceiver"
     ],
     "logs": [
       {
@@ -10234,8 +10234,8 @@
     "num_logs": 3,
     "severity": "INFO",
     "components": [
-      "dfs.DataNode$DataXceiver",
-      "dfs.FSNamesystem"
+      "dfs.FSNamesystem",
+      "dfs.DataNode$DataXceiver"
     ],
     "logs": [
       {
