@@ -4,7 +4,9 @@ import numpy as np
 import streamlit as st
 from pathlib import Path
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 from sentence_transformers import SentenceTransformer
+import plotly.express as px
 
 st.set_page_config(page_title="Incident Clusters Dashboard", layout="wide")
 
@@ -25,7 +27,7 @@ def load_or_generate_clusters(incidents, n_clusters=5):
         with open(cluster_file, "r") as f:
             return json.load(f)
     
-    st.info("Generating synthetic clusters from incident logs...")
+    st.info("Generating clusters from incident logs...")
     
     texts = []
     for inc in incidents:
@@ -46,7 +48,7 @@ def load_or_generate_clusters(incidents, n_clusters=5):
             clusters[label] = []
         clusters[label].append(incidents[idx]["incident_id"])
     
-    return clusters
+    return clusters, embeddings, cluster_labels
 
 st.title("System Log Incident Clusters Dashboard")
 
@@ -59,7 +61,7 @@ selected_file = st.sidebar.selectbox("Incident file", available_files)
 incidents = load_incidents(selected_file)
 
 n_clusters = st.sidebar.slider("Number of clusters", 2, 20, 5)
-clusters = load_or_generate_clusters(incidents, n_clusters)
+clusters, embeddings, cluster_labels = load_or_generate_clusters(incidents, n_clusters)
 
 cluster_data = []
 for cluster_id, incident_ids in clusters.items():
@@ -75,16 +77,35 @@ for cluster_id, incident_ids in clusters.items():
 
 cluster_df = pd.DataFrame(cluster_data).sort_values("num_incidents", ascending=False)
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 col1.metric("Total Clusters", len(clusters))
 col2.metric("Total Incidents", len(incidents))
-col3.metric("Avg incidents/cluster", f"{len(incidents) / len(clusters):.1f}")
+
+# Add visualization
+st.subheader("Cluster Visualization")
+viz_type = st.radio("Visualization type", ["PCA", "Cluster Distribution"], horizontal=True)
+
+if viz_type == "PCA":
+    pca = PCA(n_components=2, random_state=42)
+    embeddings_2d = pca.fit_transform(embeddings)
+    
+    plot_df = pd.DataFrame({
+        'x': embeddings_2d[:, 0],
+        'y': embeddings_2d[:, 1],
+        'cluster': cluster_labels,
+        'incident_id': [inc['incident_id'] for inc in incidents]
+    })
+    
+    fig = px.scatter(plot_df, x='x', y='y', color='cluster', hover_name='incident_id',
+                     title='Incident Clusters (PCA Projection)',
+                     color_continuous_scale='Viridis',
+                     width=800, height=600)
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.bar_chart(cluster_df.set_index("cluster_id")["num_incidents"])
 
 st.subheader("Cluster Summary")
 st.dataframe(cluster_df, use_container_width=True)
-
-st.subheader("Cluster Size Distribution")
-st.bar_chart(cluster_df.set_index("cluster_id")["num_incidents"])
 
 st.subheader("Cluster Details")
 selected_cluster_id = st.selectbox(

@@ -5,4 +5,4 @@ This project is inspired by real-world incident triage systems used in industry,
 Slides Link: https://docs.google.com/presentation/d/1YlgiXMGsuaN5UxHB6QTCWEtoRHpWhtedporl_AXNf5E/edit?slide=id.p#slide=id.p
 
 ## Milestone 2:
-Slides Link:https://docs.google.com/presentation/d/1C3QZNC3eY1F_84iKXSxAU13xbw4_677_dVf2XExstI4/edit?slide=id.g3da4c15f9ea_0_181#slide=id.g3da4c15f9ea_0_181
+Slides Link:https://docs.google.com/presentation/d/1C3QZNC3eY1F_84iKXSxAU13xbw4_677_dVf2XExstI4/edit?slide=id.p
