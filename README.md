@@ -6,4 +6,7 @@ Slides Link: https://docs.google.com/presentation/d/1YlgiXMGsuaN5UxHB6QTCWEtoRHp
 
 ## Milestone 2:
 Slides Link: https://docs.google.com/presentation/d/1C3QZNC3eY1F_84iKXSxAU13xbw4_677_dVf2XExstI4/edit?slide=id.p
+
 Demo Video: https://streamable.com/i0evwz
+
+Demo Docs: [m2_demo_docs.md](m2_demo_docs.md)
