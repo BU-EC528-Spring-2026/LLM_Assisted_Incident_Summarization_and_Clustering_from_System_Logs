@@ -2,8 +2,8 @@
 pandas>=2.0.0
 numpy>=1.24.0
 scikit-learn>=1.8.0
-sentence_transfomers>=5.3.0
-dotenv>=0.9.9
+sentence-transformers>=5.3.0
+python-dotenv>=0.9.9
 
 # Data visualization
 matplotlib>=3.7.0
@@ -15,17 +15,13 @@ jupyter>=1.0.0
 ipython>=8.12.0
 ipykernel
 
-# embeddings
-sentence-transformers
-
 # Clustering
-scikit-learn
 hdbscan
 umap-learn
 
 # llm
 openai
-dot-env
+python-dotenv
 
 # ui
 streamlit

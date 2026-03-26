@@ -379,7 +379,7 @@ def main():
     ap = argparse.ArgumentParser(description="HDFS ingestion consumer (self-contained)")
     ap.add_argument("--port",   type=int, default=9880,               help="HTTP port (must match fluent-bit.conf)")
     ap.add_argument("--window", type=int, default=5,                  help="Incident grouping window in minutes")
-    ap.add_argument("--data",   type=str, default="../data",          help="Folder containing anomaly_label.csv")
+    ap.add_argument("--data",   type=str, default="./data",          help="Folder containing anomaly_label.csv")
     ap.add_argument("--out",    type=str, default="incidents.ndjson", help="Output file path")
     args = ap.parse_args()
 

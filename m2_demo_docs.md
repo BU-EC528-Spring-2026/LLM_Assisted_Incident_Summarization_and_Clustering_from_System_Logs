@@ -49,17 +49,17 @@ pip install -r requirements.txt
 # Create data directory if it doesn't exist
 mkdir -p data
 
-# Download and extract HDFS logs
+# Download and extract HDFS logs (can be found here https://github.com/logpai/loghub/tree/master?tab=readme-ov-file; scroll down to the README.md portion and click on the download link on the HDFS_v1 row)
 # You'll need:
 # - HDFS.log (raw log file)
 # - Event_occurrence_matrix.csv (ground truth labels)
 
 data/
 ├── HDFS.log                    # Raw HDFS logs
-|-- preprocessed/
     ├── Event_occurrence_matrix.csv # Ground truth labels
     ├── anomaly_label.csv
 
+## Important! Update the Path in ingestion/fluent-bit.conf to the path for the data/HDFS.log
 [INPUT]
     Name tail
     Path /path/to/your/HDFS.log   # Update this path
