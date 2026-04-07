@@ -7,7 +7,7 @@ __pycache__/
 
 # Virtual environment
 .venv311/
-env
+.env
 
 # Large data files
 data/HDFS.log
