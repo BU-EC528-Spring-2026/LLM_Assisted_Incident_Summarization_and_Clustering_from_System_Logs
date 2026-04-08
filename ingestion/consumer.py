@@ -1,22 +1,12 @@
 """
-ingestion/consumer.py  (self-contained)
-────────────────────────────────────────
-Single-file ingestion consumer. No repo access needed.
+ingestion/consumer.py  (multi-dataset)
 
-Includes:
-  - HDFSLogParser   (ported from hdfs_parser.py)
-  - IncidentGrouper (ported from incident_grouper.py)
-  - Anomaly label loader (from LogHub anomaly_label.csv)
-  - Fluent Bit HTTP receiver
-  - incidents.ndjson writer
+Supports HDFS, Thunderbird, and Zookeeper log datasets.
+This consumer groups records into incidents and writes incidents.ndjson.
 
-Usage
------
-    # Terminal 1
-    python consumer.py --data ../data --out incidents.ndjson
-
-    # Terminal 2
-    fluent-bit -c fluent-bit.conf
+    python consumer.py --dataset hdfs         --out incidents.ndjson
+    python consumer.py --dataset thunderbird  --out incidents.ndjson
+    python consumer.py --dataset zookeeper    --out incidents.ndjson
 """
 
 import argparse
@@ -37,300 +27,229 @@ logging.basicConfig(
 )
 log = logging.getLogger("consumer")
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 1.  HDFS LOG PARSER
-#     Ported from hdfs_parser.py in the team repo.
-#     Parses a single raw log line into a structured dict.
-# ══════════════════════════════════════════════════════════════════════════════
-
-class HDFSLogParser:
-    """
-    Parses lines in the LogHub HDFS format:
-        DATE    TIME  TID  LEVEL  COMPONENT: MESSAGE
-        081109 203518  143  INFO  dfs.DataNode$DataXceiver: Receiving block blk_-1608...
-    """
-
-    def __init__(self):
-        # Main line pattern: captures date / time / thread / level / component / message
-        self.pattern = re.compile(
-            r'^(\d{6})\s+(\d{6})\s+(\d+)\s+(\w+)\s+([\w.$]+):\s+(.+)$'
-        )
-        # Block ID pattern — may appear anywhere in the message
-        self.block_pattern = re.compile(r'blk_-?\d+')
-
-    def parse_line(self, line: str, line_number: int) -> Optional[Dict]:
-        line = line.strip()
-        if not line:
-            return None
-
-        match = self.pattern.match(line)
-        if not match:
-            return None  # silently skip malformed lines (header rows, blank, etc.)
-
-        date_str, time_str, thread_id, level, component, message = match.groups()
-
-        # Parse timestamp
-        try:
-            timestamp = datetime.strptime(f"{date_str} {time_str}", "%y%m%d %H%M%S")
-            timestamp_str = timestamp.isoformat()
-        except ValueError:
-            # Fallback: manually build ISO string
-            timestamp_str = (
-                f"20{date_str[:2]}-{date_str[2:4]}-{date_str[4:6]}"
-                f"T{time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}"
-            )
-
-        # Extract block ID from message (if present)
-        block_match = self.block_pattern.search(message)
-        block_id = block_match.group(0) if block_match else None
-
-        return {
-            "line_number": line_number,
-            "timestamp":   timestamp_str,
-            "thread_id":   thread_id,
-            "level":       level,
-            "component":   component,
-            "message":     message,
-            "block_id":    block_id,
-            "raw_line":    line,
-        }
-
-    def parse_lines(self, lines: List[str]) -> List[Dict]:
-        """Parse a list of raw strings. Returns only successfully parsed entries."""
-        parsed, failed = [], 0
-        for i, line in enumerate(lines, 1):
-            entry = self.parse_line(line, i)
-            if entry:
-                parsed.append(entry)
-            else:
-                failed += 1
-        log.info("Parser: %d/%d lines parsed successfully (%d failed)",
-                 len(parsed), len(lines), failed)
-        return parsed
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 2.  INCIDENT GROUPER
-#     Ported from incident_grouper.py in the team repo.
-#     Groups parsed log dicts into incidents by block_id + time window.
-# ══════════════════════════════════════════════════════════════════════════════
-
 LEVEL_PRIORITY = {"FATAL": 4, "ERROR": 3, "WARN": 2, "WARNING": 2, "INFO": 1, "DEBUG": 0}
 
 
+
+def _ts(rec: dict) -> str:
+    """Extract ISO timestamp from Fluent Bit record. Falls back to date field."""
+    return rec.get("timestamp") or rec.get("date", "1970-01-01T00:00:00")
+
+
+# HDFS 
+
+def _parse_hdfs(rec: dict) -> Optional[dict]:
+    block_id = rec.get("block_id", "").strip() or None
+    return {
+        "timestamp":  _ts(rec),
+        "thread_id":  rec.get("thread_id", ""),
+        "level":      rec.get("level", "INFO"),
+        "component":  rec.get("component", ""),
+        "message":    rec.get("message", ""),
+        "block_id":   block_id,
+    }
+
+def _group_hdfs(entry: dict) -> Optional[str]:
+    """Group by block_id — logs without one are discarded."""
+    return entry.get("block_id")
+
+
+#  Thunderbird 
+
+def _parse_thunderbird(rec: dict) -> Optional[dict]:
+    return {
+        "timestamp":  _ts(rec),
+        "node":       rec.get("node", ""),
+        "hostname":   rec.get("hostname", ""),
+        "level":      rec.get("level", "INFO"),
+        "component":  rec.get("component", ""),
+        "message":    rec.get("message", ""),
+        "label":      rec.get("label", "-"),   # "-" = normal, else anomaly tag
+    }
+
+def _group_thunderbird(entry: dict) -> Optional[str]:
+    """Group by node — each physical node is treated as an incident context."""
+    return entry.get("node") or "unknown_node"
+
+
+# Zookeeper 
+
+def _parse_zookeeper(rec: dict) -> Optional[dict]:
+    return {
+        "timestamp":  _ts(rec),
+        "thread":     rec.get("thread", ""),
+        "level":      rec.get("level", "INFO"),
+        "component":  rec.get("component", ""),
+        "message":    rec.get("message", ""),
+    }
+
+def _group_zookeeper(entry: dict) -> Optional[str]:
+    """Zookeeper is single-node — group everything into one rolling window."""
+    return "zookeeper"
+
+
+# Registry
+
+DATASETS = {
+    "hdfs": {
+        "parse":     _parse_hdfs,
+        "group_key": _group_hdfs,
+        "desc":      "HDFS (LogHub HDFS_v1) — groups by block_id",
+    },
+    "thunderbird": {
+        "parse":     _parse_thunderbird,
+        "group_key": _group_thunderbird,
+        "desc":      "Thunderbird supercomputer logs — groups by node",
+    },
+    "zookeeper": {
+        "parse":     _parse_zookeeper,
+        "group_key": _group_zookeeper,
+        "desc":      "Zookeeper logs — groups by time window",
+    },
+}
+
+
+
 class IncidentGrouper:
-    """
-    Groups logs into incidents.
-    Rule: logs sharing the same block_id within time_window_minutes form one incident.
-    """
 
-    def __init__(self, time_window_minutes: int = 5):
-        self.time_window = timedelta(minutes=time_window_minutes)
+    def __init__(self, time_window_minutes: int, group_key_fn):
+        self.time_window   = timedelta(minutes=time_window_minutes)
+        self.group_key_fn  = group_key_fn
 
-    def group_incidents(self, logs: List[Dict]) -> List[Dict]:
-        # Only logs that have a block_id can be grouped
-        logs_with_blocks = [l for l in logs if l.get("block_id")]
-        log.info("Grouper: %d/%d logs have a block_id", len(logs_with_blocks), len(logs))
+    def group(self, entries: List[dict]) -> List[dict]:
+        buckets: Dict[str, List[dict]] = defaultdict(list)
+        for e in entries:
+            key = self.group_key_fn(e)
+            if key:
+                buckets[key].append(e)
 
-        # Bucket by block_id
-        buckets: Dict[str, List[Dict]] = defaultdict(list)
-        for entry in logs_with_blocks:
-            buckets[entry["block_id"]].append(entry)
+        log.info("Grouper: %d unique group keys across %d entries", len(buckets), len(entries))
 
-        log.info("Grouper: %d unique block IDs found", len(buckets))
+        incidents, iid = [], 1
+        for key, group_logs in buckets.items():
+            group_logs.sort(key=lambda x: x["timestamp"])
+            current, window_start = [], None
 
-        incidents = []
-        incident_id = 1
-
-        for block_id, block_logs in buckets.items():
-            # Sort chronologically
-            block_logs.sort(key=lambda x: x["timestamp"])
-
-            current: List[Dict] = []
-            window_start: Optional[datetime] = None
-
-            for entry in block_logs:
-                entry_time = datetime.fromisoformat(entry["timestamp"])
+            for entry in group_logs:
+                try:
+                    t = datetime.fromisoformat(entry["timestamp"])
+                except ValueError:
+                    t = datetime(1970, 1, 1)
 
                 if window_start is None:
-                    window_start = entry_time
-                    current = [entry]
-                elif entry_time - window_start <= self.time_window:
+                    window_start, current = t, [entry]
+                elif t - window_start <= self.time_window:
                     current.append(entry)
                 else:
-                    # Close current window, open a new one
-                    incidents.append(self._build(incident_id, block_id, current))
-                    incident_id += 1
-                    window_start = entry_time
-                    current = [entry]
+                    incidents.append(self._build(iid, key, current))
+                    iid += 1
+                    window_start, current = t, [entry]
 
             if current:
-                incidents.append(self._build(incident_id, block_id, current))
-                incident_id += 1
+                incidents.append(self._build(iid, key, current))
+                iid += 1
 
-        log.info(
-            "Grouper: produced %d incidents (avg %.1f logs each)",
-            len(incidents),
-            len(logs_with_blocks) / len(incidents) if incidents else 0,
-        )
+        log.info("Grouper: produced %d incidents", len(incidents))
         return incidents
 
-    def _build(self, incident_id: int, block_id: str, logs: List[Dict]) -> Dict:
-        timestamps  = [datetime.fromisoformat(l["timestamp"]) for l in logs]
-        start, end  = min(timestamps), max(timestamps)
-        severity    = max((l["level"] for l in logs), key=lambda x: LEVEL_PRIORITY.get(x, 0))
-        components  = sorted(set(l["component"] for l in logs))
+    def _build(self, iid: int, group_key: str, logs: List[dict]) -> dict:
+        timestamps = []
+        for l in logs:
+            try:
+                timestamps.append(datetime.fromisoformat(l["timestamp"]))
+            except ValueError:
+                pass
+
+        start = min(timestamps) if timestamps else datetime(1970, 1, 1)
+        end   = max(timestamps) if timestamps else datetime(1970, 1, 1)
+        severity = max((l["level"] for l in logs), key=lambda x: LEVEL_PRIORITY.get(x, 0))
+        components = sorted(set(l.get("component", "") for l in logs if l.get("component")))
 
         return {
-            "incident_id":      incident_id,
-            "block_id":         block_id,
+            "incident_id":      iid,
+            "group_key":        group_key,
             "start_time":       start.isoformat(),
             "end_time":         end.isoformat(),
             "duration_seconds": (end - start).total_seconds(),
             "num_logs":         len(logs),
             "severity":         severity,
             "components":       components,
-            "logs":             logs,   # full records — passed straight to LLM summariser
-        }
-
-    def get_stats(self, incidents: List[Dict]) -> Dict:
-        if not incidents:
-            return {}
-        log_counts = [i["num_logs"]         for i in incidents]
-        durations  = [i["duration_seconds"] for i in incidents]
-        severities = [i["severity"]         for i in incidents]
-        return {
-            "total_incidents":       len(incidents),
-            "total_logs":            sum(log_counts),
-            "avg_logs_per_incident": round(sum(log_counts) / len(incidents), 1),
-            "min_logs":              min(log_counts),
-            "max_logs":              max(log_counts),
-            "avg_duration_seconds":  round(sum(durations) / len(durations), 1),
-            "severity_distribution": {
-                lvl: severities.count(lvl) for lvl in set(severities)
-            },
+            "logs":             logs,
         }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 3.  ANOMALY LABEL LOADER
-#     Reads LogHub's anomaly_label.csv and maps block_id -> "Normal"|"Anomaly"
-# ══════════════════════════════════════════════════════════════════════════════
 
 def load_anomaly_labels(data_dir: Path) -> Dict[str, str]:
     label_path = data_dir / "anomaly_label.csv"
     if not label_path.exists():
-        log.warning("anomaly_label.csv not found at %s — 'anomaly_label' field will be 'Unknown'", label_path)
+        log.warning("anomaly_label.csv not found — 'anomaly_label' will be 'Unknown'")
         return {}
-
     labels = {}
     with open(label_path, newline="") as f:
         for row in csv.DictReader(f):
             labels[row["BlockId"].strip()] = row["Label"].strip()
-
-    log.info("Loaded %d anomaly labels from %s", len(labels), label_path)
+    log.info("Loaded %d anomaly labels", len(labels))
     return labels
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 4.  LINE BUFFER
-#     Accumulates raw lines from Fluent Bit, then flushes through the pipeline.
-# ══════════════════════════════════════════════════════════════════════════════
-
 class LineBuffer:
 
-    def __init__(self, time_window_minutes: int, anomaly_labels: Dict, out_path: str):
-        self.parser   = HDFSLogParser()
-        self.grouper  = IncidentGrouper(time_window_minutes=time_window_minutes)
-        self.labels   = anomaly_labels
-        self.out_path = out_path
-        self._lines: List[str] = []
+    def __init__(self, dataset: str, time_window_minutes: int, anomaly_labels: dict, out_path: str):
+        cfg = DATASETS[dataset]
+        self.parse_fn  = cfg["parse"]
+        self.grouper   = IncidentGrouper(time_window_minutes, cfg["group_key"])
+        self.labels    = anomaly_labels
+        self.out_path  = out_path
+        self.dataset   = dataset
+        self._entries: List[dict] = []
 
-    def add(self, records: List[Dict]) -> None:
+    def add(self, records: List[dict]) -> None:
         for rec in records:
-            # Fluent Bit may send either separate date/time fields or a unix timestamp
-            date_str = str(rec.get("date", ""))
-            time_str = str(rec.get("time", ""))
-            
-            timestamp = None
-            
-            # Try unix timestamp first (what Fluent Bit actually sends)
-            for key in ("time_unix", "time", "@timestamp"):
-                val = rec.get(key)
-                if val and isinstance(val, (int, float)):
-                    try:
-                        timestamp = datetime.utcfromtimestamp(float(val)).isoformat()
-                        break
-                    except (ValueError, OSError):
-                        continue
-            
-            # Fall back to date+time string fields
-            if timestamp is None and date_str and time_str:
-                try:
-                    timestamp = datetime.strptime(f"{date_str} {time_str}", "%y%m%d %H%M%S").isoformat()
-                except ValueError:
-                    timestamp = f"20{date_str[:2]}-{date_str[2:4]}-{date_str[4:6]}T{time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}"
-            
-            if timestamp is None:
-                timestamp = datetime.utcnow().isoformat()
+            entry = self.parse_fn(rec)
+            if entry:
+                self._entries.append(entry)
+        log.debug("Buffer: %d entries", len(self._entries))
 
-            message = rec.get("message", "") or rec.get("log", "")
-            block_match = re.search(r'blk_-?\d+', message)
-            block_id = block_match.group(0) if block_match else None
-
-            entry = {
-                "line_number": len(self._lines) + 1,
-                "timestamp":   timestamp,
-                "thread_id":   rec.get("thread_id", ""),
-                "level":       rec.get("level", "INFO"),
-                "component":   rec.get("component", ""),
-                "message":     message,
-                "block_id":    block_id,
-                "raw_line":    message,
-            }
-            self._lines.append(entry)
-        log.debug("Buffer: %d entries accumulated", len(self._lines))
-
-    def flush(self) -> List[Dict]:
-        if not self._lines:
+    def flush(self) -> List[dict]:
+        if not self._entries:
             log.info("Buffer empty — nothing to flush")
             return []
 
         log.info("─" * 60)
-        log.info("Flushing %d buffered entries…", len(self._lines))
+        log.info("Flushing %d entries  [dataset=%s]", len(self._entries), self.dataset)
 
-    # Skip parsing — entries are already structured dicts from Fluent Bit
-        parsed = [e for e in self._lines if e.get("block_id")]
-        log.info("Entries with block_id: %d / %d", len(parsed), len(self._lines))
+        incidents = self.grouper.group(self._entries)
 
-        incidents = self.grouper.group_incidents(parsed)
-
+        # Enrich with anomaly labels (HDFS uses block_id / group_key as label key)
         labeled = 0
         for inc in incidents:
-            label = self.labels.get(inc["block_id"])
+            label = self.labels.get(inc["group_key"])
             inc["anomaly_label"] = label or "Unknown"
             if label:
                 labeled += 1
-        log.info("Labeled %d/%d incidents with ground-truth anomaly labels", labeled, len(incidents))
+
+        if self.labels:
+            log.info("Labeled %d/%d incidents", labeled, len(incidents))
 
         with open(self.out_path, "w") as f:
             for inc in incidents:
                 f.write(json.dumps(inc, default=str) + "\n")
+
         log.info("Written → %s", self.out_path)
 
-        stats = self.grouper.get_stats(incidents)
-        stats["anomaly_count"] = sum(1 for i in incidents if i["anomaly_label"] == "Anomaly")
-        stats["normal_count"]  = len(incidents) - stats["anomaly_count"]
-        log.info("Stats:\n%s", json.dumps(stats, indent=2))
+        severity_dist = defaultdict(int)
+        for inc in incidents:
+            severity_dist[inc["severity"]] += 1
+        stats = {
+            "total_incidents": len(incidents),
+            "total_logs":      sum(i["num_logs"] for i in incidents),
+            "avg_logs":        round(sum(i["num_logs"] for i in incidents) / len(incidents), 1) if incidents else 0,
+            "severity":        dict(severity_dist),
+        }
+        log.info("Stats: %s", json.dumps(stats))
         log.info("─" * 60)
-
         return incidents
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 5.  HTTP SERVER  (Fluent Bit → POST /ingest)
-# ══════════════════════════════════════════════════════════════════════════════
 
 _buffer: Optional[LineBuffer] = None
 
@@ -360,7 +279,7 @@ class FluentBitHandler(BaseHTTPRequestHandler):
 
         self._reply(200, "OK")
 
-    def _reply(self, code: int, msg: str) -> None:
+    def _reply(self, code, msg):
         body = msg.encode()
         self.send_response(code)
         self.send_header("Content-Length", len(body))
@@ -368,32 +287,33 @@ class FluentBitHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, *args):
-        pass  # suppress per-request noise
+        pass
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 6.  ENTRY POINT
-# ══════════════════════════════════════════════════════════════════════════════
 
 def main():
-    ap = argparse.ArgumentParser(description="HDFS ingestion consumer (self-contained)")
-    ap.add_argument("--port",   type=int, default=9880,               help="HTTP port (must match fluent-bit.conf)")
-    ap.add_argument("--window", type=int, default=5,                  help="Incident grouping window in minutes")
-    ap.add_argument("--data",   type=str, default="./data",          help="Folder containing anomaly_label.csv")
-    ap.add_argument("--out",    type=str, default="incidents.ndjson", help="Output file path")
+    ap = argparse.ArgumentParser(description="Multi-dataset log ingestion consumer")
+    ap.add_argument("--dataset", choices=DATASETS.keys(), default="hdfs",
+                    help="Log dataset format (default: hdfs)")
+    ap.add_argument("--port",   type=int, default=9880,               help="HTTP port")
+    ap.add_argument("--window", type=int, default=5,                  help="Incident grouping window (minutes)")
+    ap.add_argument("--data",   type=str, default="./data",           help="Data dir (for anomaly_label.csv)")
+    ap.add_argument("--out",    type=str, default="incidents.ndjson", help="Output file")
     args = ap.parse_args()
+
+    log.info("Dataset : %s — %s", args.dataset, DATASETS[args.dataset]["desc"])
 
     labels = load_anomaly_labels(Path(args.data))
 
     global _buffer
     _buffer = LineBuffer(
+        dataset=args.dataset,
         time_window_minutes=args.window,
         anomaly_labels=labels,
         out_path=args.out,
     )
 
-    log.info("Consumer ready  |  port=%d  window=%dm  labels=%d  out=%s",
-             args.port, args.window, len(labels), args.out)
+    log.info("Consumer ready  |  port=%d  window=%dm  out=%s", args.port, args.window, args.out)
     log.info("Start Fluent Bit in another terminal, then Ctrl-C here to flush + exit.")
 
     server = HTTPServer(("127.0.0.1", args.port), FluentBitHandler)
