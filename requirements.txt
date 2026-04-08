@@ -23,6 +23,7 @@ umap-learn
 # llm
 openai
 python-dotenv
+jsonschema
 
 # ui
 streamlit
