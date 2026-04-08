@@ -1,149 +1,172 @@
-import json
-import pandas as pd
 import numpy as np
+import pandas as pd
+import plotly.express as px
 import streamlit as st
 from pathlib import Path
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-from sentence_transformers import SentenceTransformer
-import plotly.express as px
 
-st.set_page_config(page_title="Incident Clusters Dashboard", layout="wide")
+st.set_page_config(page_title="HDFS Cluster Dashboard", layout="wide")
 
-DATA_DIR = Path("data")
-
-@st.cache_data
-def load_incidents(filename: str):
-    with open(DATA_DIR / filename, "r") as f:
-        incidents = json.load(f)
-    return incidents
-
-@st.cache_data
-def load_or_generate_clusters(incidents, n_clusters=5):
-    """Load clusters from file or generate synthetic clusters"""
-    cluster_file = DATA_DIR / "clusters.json"
+def _reduce_to_2d(vectors: np.ndarray) -> np.ndarray:
+    """Reduces high-dimensional embeddings to 2D using SVD/PCA."""
+    if vectors.shape[1] == 1:
+        return np.column_stack([vectors[:, 0], np.zeros(vectors.shape[0])])
     
-    if cluster_file.exists():
-        with open(cluster_file, "r") as f:
-            return json.load(f)
+    # Center the vectors
+    centered = vectors - vectors.mean(axis=0, keepdims=True)
+    _, _, vh = np.linalg.svd(centered, full_matrices=False)
     
-    st.info("Generating clusters from incident logs...")
+    # Project onto first two principal components
+    return centered @ vh[:2].T
+
+def main():
+    st.title("HDFS Cluster Dashboard")
+    st.markdown("Visualize block clusters, embeddings, and LLM summaries.")
+
+    # 1. SIDEBAR CONFIG
+    st.sidebar.header("Data Loading")
+    data_dir = st.sidebar.text_input("Pipeline Output Directory", value="./pipeline_output")
+    data_path = Path(data_dir)
     
-    texts = []
-    for inc in incidents:
-        logs = inc.get('logs', [])
-        log_messages = [log.get('message', '') for log in logs]
-        text = ' | '.join(log_messages) if log_messages else f"{inc.get('severity', 'UNKNOWN')} error"
-        texts.append(text)
+    clusters_file = data_path / "clusters.csv"
+    embeddings_file = data_path / "embeddings.csv"
+    summaries_file = data_path / "summaries.csv"
     
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-    embeddings = model.encode(texts)
+    if not clusters_file.exists():
+        st.warning(f"Could not find `{clusters_file}`. Please run `cluster_pipeline.py` first, or check the folder path in the sidebar.")
+        return
+        
+    st.sidebar.header("Performance / Sampling")
+    max_per_cluster = st.sidebar.number_input(
+        "Max samples per cluster", 
+        min_value=5, max_value=5000, value=100, step=10,
+        help="Limit the number of blocks displayed per cluster so the UI doesn't freeze."
+    )
+
+    # 2. LOAD DATA
+    df_clusters = pd.read_csv(clusters_file)
     
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    cluster_labels = kmeans.fit_predict(embeddings)
+    has_embeddings = embeddings_file.exists()
+    df_embeddings = pd.read_csv(embeddings_file) if has_embeddings else pd.DataFrame()
+        
+    has_summaries = summaries_file.exists()
+    df_summaries = pd.read_csv(summaries_file) if has_summaries else pd.DataFrame()
+
+    # 3. CALCULATE TRUE KPIs (Before Subsampling)
+    n_total_blocks = len(df_clusters)
+    cluster_ids = df_clusters["cluster_id"].unique()
+    n_clusters = len([c for c in cluster_ids if c != -1])
+    n_noise = len(df_clusters[df_clusters["cluster_id"] == -1])
+
+    # 4. MERGE DATA
+    df = df_clusters.copy()
     
-    clusters = {}
-    for idx, label in enumerate(cluster_labels):
-        if label not in clusters:
-            clusters[label] = []
-        clusters[label].append(incidents[idx]["incident_id"])
+    if has_summaries:
+        df = df.merge(df_summaries, on="block_id", how="left")
+        df["summary"] = df["summary"].fillna("No summary generated")
+    else:
+        df["summary"] = "No summary data available"
+
+    # 5. SUBSAMPLE PER CLUSTER
+    df = (
+        df.groupby("cluster_id", group_keys=False)
+        .apply(lambda x: x.sample(n=min(len(x), max_per_cluster), random_state=42))
+        .reset_index(drop=True)
+    )
     
-    return clusters, embeddings, cluster_labels
+    n_sampled_blocks = len(df)
 
-st.title("System Log Incident Clusters Dashboard")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Blocks Evaluated", n_total_blocks)
+    col2.metric("Distinct Clusters", n_clusters)
+    col3.metric("Total Noise Blocks", f"{n_noise} ({(n_noise/n_total_blocks)*100:.1f}%)" if n_total_blocks else 0)
+    col4.metric("Subsampled Points Shown", n_sampled_blocks)
 
-available_files = sorted([p.name for p in DATA_DIR.glob("incidents_*.json")])
-if not available_files:
-    st.error("No incident JSON files found in data/")
-    st.stop()
-
-selected_file = st.sidebar.selectbox("Incident file", available_files)
-incidents = load_incidents(selected_file)
-
-n_clusters = st.sidebar.slider("Number of clusters", 2, 20, 5)
-clusters, embeddings, cluster_labels = load_or_generate_clusters(incidents, n_clusters)
-
-cluster_data = []
-for cluster_id, incident_ids in clusters.items():
-    cluster_incidents = [inc for inc in incidents if inc["incident_id"] in incident_ids]
+    # 6. RENDER UI TABS
+    tab1, tab2, tab3 = st.tabs(["2D Visualization", "Cluster Explorer", "Raw Data"])
     
-    cluster_data.append({
-        "cluster_id": cluster_id,
-        "num_incidents": len(incident_ids),
-        "avg_logs": np.mean([inc["num_logs"] for inc in cluster_incidents]),
-        "common_severity": pd.Series([inc["severity"] for inc in cluster_incidents]).mode()[0],
-        "components": len(set(comp for inc in cluster_incidents for comp in inc["components"])),
-    })
+    with tab1:
+        st.subheader(f"Embedding Projection (Sampled: {n_sampled_blocks} points)")
+        if has_embeddings:
+            dim_cols = [c for c in df_embeddings.columns if str(c).startswith("dim_")]
+            
+            if dim_cols:
+                df_viz = df.merge(df_embeddings[["block_id"] + dim_cols], on="block_id", how="inner")
+                vectors = df_viz[dim_cols].to_numpy()
+                
+                coords_2d = _reduce_to_2d(vectors)
+                df_viz["x"] = coords_2d[:, 0]
+                df_viz["y"] = coords_2d[:, 1]
+                
+                df_viz["Cluster Name"] = df_viz["cluster_id"].apply(lambda x: "Noise (-1)" if x == -1 else f"Cluster {x}")
+                
+                fig = px.scatter(
+                    df_viz,
+                    x="x", y="y",
+                    color="Cluster Name",
+                    custom_data=["block_id", "summary", "cluster_id"], # Crucial for click events
+                    hover_data={
+                        "block_id": True, 
+                        "Cluster Name": False, 
+                        "cluster_id": False, 
+                        "summary": False, # Hide on pure hover to keep it clean; relies on click
+                        "x": False, "y": False
+                    },
+                    height=600
+                )
+                
+                fig.update_traces(marker=dict(size=8, opacity=0.8))
+                
+                # Render chart and capture selection events
+                event = st.plotly_chart(fig, use_container_width=True, on_select="rerun")
+                
+                if event and event.get("selection") and event["selection"].get("points"):
+                    st.divider()
+                    st.subheader("Selected Block(s)")
+                    
+                    selected_points = event["selection"]["points"]
+                    
+                    # Limit rendering if user lasso-selects thousands of points
+                    if len(selected_points) > 50:
+                        st.warning(f"You selected {len(selected_points)} points. Showing the first 50 below.")
+                        selected_points = selected_points[:50]
+                        
+                    for pt in selected_points:
+                        b_id = pt["customdata"][0]
+                        b_sum = pt["customdata"][1]
+                        c_id = pt["customdata"][2]
+                        
+                        # Show as an open expander for easy reading
+                        c_desc = "Noise" if c_id == -1 else f"Cluster {c_id}"
+                        with st.expander(f"**Block ID**: {b_id} | {c_desc}", expanded=True):
+                            st.write(b_sum)
 
-cluster_df = pd.DataFrame(cluster_data).sort_values("num_incidents", ascending=False)
+            else:
+                st.info("No 'dim_X' columns found in embeddings.csv.")
+        else:
+            st.info("No embeddings.csv found for visualization.")
 
-col1, col2 = st.columns(2)
-col1.metric("Total Clusters", len(clusters))
-col2.metric("Total Incidents", len(incidents))
+    with tab2:
+        st.subheader("Explore Summaries by Cluster")
+        
+        sorted_clusters = sorted(cluster_ids.tolist())
+        selected_cid = st.selectbox(
+            "Select a Cluster to inspect:", 
+            options=sorted_clusters,
+            format_func=lambda x: f"Noise (-1)" if x == -1 else f"Cluster {x}"
+        )
+        
+        cluster_df = df[df["cluster_id"] == selected_cid]
+        true_cluster_count = len(df_clusters[df_clusters["cluster_id"] == selected_cid])
+        
+        st.write(f"**Showing {len(cluster_df)} sampled blocks (out of {true_cluster_count} total blocks mapped to this cluster):**")
+        
+        for _, row in cluster_df.iterrows():
+            with st.expander(f"Block ID: {row['block_id']}"):
+                st.write(row["summary"])
 
-# Add visualization
-st.subheader("Cluster Visualization")
-viz_type = st.radio("Visualization type", ["PCA", "Cluster Distribution"], horizontal=True)
+    with tab3:
+        st.subheader(f"Merged Dataset (Sampled: {n_sampled_blocks} rows)")
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
-if viz_type == "PCA":
-    pca = PCA(n_components=2, random_state=42)
-    embeddings_2d = pca.fit_transform(embeddings)
-    
-    plot_df = pd.DataFrame({
-        'x': embeddings_2d[:, 0],
-        'y': embeddings_2d[:, 1],
-        'cluster': cluster_labels,
-        'incident_id': [inc['incident_id'] for inc in incidents]
-    })
-    
-    fig = px.scatter(plot_df, x='x', y='y', color='cluster', hover_name='incident_id',
-                     title='Incident Clusters (PCA Projection)',
-                     color_continuous_scale='Viridis',
-                     width=800, height=600)
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.bar_chart(cluster_df.set_index("cluster_id")["num_incidents"])
-
-st.subheader("Cluster Summary")
-st.dataframe(cluster_df, use_container_width=True)
-
-st.subheader("Cluster Details")
-selected_cluster_id = st.selectbox(
-    "Select cluster",
-    options=cluster_df["cluster_id"].tolist(),
-    format_func=lambda x: f"Cluster {x} ({cluster_df[cluster_df['cluster_id']==x]['num_incidents'].values[0]} incidents)"
-)
-
-selected_incident_ids = clusters[selected_cluster_id]
-selected_incidents = [inc for inc in incidents if inc["incident_id"] in selected_incident_ids]
-
-# Show incidents in cluster
-incident_summary = pd.DataFrame([
-    {
-        "incident_id": inc["incident_id"],
-        "severity": inc["severity"],
-        "num_logs": inc["num_logs"],
-        "duration_seconds": inc["duration_seconds"],
-        "components": ", ".join(inc["components"]),
-    }
-    for inc in selected_incidents
-])
-
-st.dataframe(incident_summary, use_container_width=True)
-
-st.subheader("Incident Details")
-if selected_incident_ids:
-    selected_incident_id = st.selectbox("Choose incident from cluster", selected_incident_ids)
-    selected_incident = next(x for x in selected_incidents if x["incident_id"] == selected_incident_id)
-    
-    st.json({
-        "incident_id": selected_incident["incident_id"],
-        "severity": selected_incident["severity"],
-        "components": selected_incident["components"],
-        "num_logs": selected_incident["num_logs"],
-        "start_time": selected_incident["start_time"],
-        "end_time": selected_incident["end_time"],
-    })
-    
-    st.write("Logs")
-    st.dataframe(pd.DataFrame(selected_incident["logs"]), use_container_width=True)
+if __name__ == "__main__":
+    main()

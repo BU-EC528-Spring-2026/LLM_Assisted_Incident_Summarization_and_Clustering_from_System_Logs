@@ -43,6 +43,8 @@ import hdbscan
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
+import concurrent.futures as cf
+import threading
 
 load_dotenv()
 
@@ -175,29 +177,62 @@ def summarize_block(client: OpenAI, block_id: str, lines: list[str]) -> str:
 def summarize_all_blocks(
     client: OpenAI,
     block_lines: dict[str, list[str]],
+    max_workers: int = 8,
+    retry_attempts: int = 3,
+    retry_sleep_s: float = 1.5,
+    max_concurrent_requests: int = 8,
 ) -> dict[str, str]:
-    """Summarize all blocks. Returns {block_id: summary_text}."""
-    summaries = {}
+    """Summarize all blocks in parallel with request throttling.
+    
+    Rate limit for OpenAI T1 is 500 Requests per Minute, 10,000 requests per day; max_workers = 8 seems to work
+
+    If RPM is reached, reduce max_workers
+
+    If RPD is reached (occurs if the pipeline is run again after running to full), should wait a day before retrying
+    """
+    summaries: dict[str, str] = {}
     total = len(block_lines)
-
-    log.info("Summarizing %d blocks with gpt-4o-mini...", total)
+    done = 0
     t0 = time.time()
+    
+    # Semaphore to limit concurrent API requests
+    request_semaphore = threading.Semaphore(max_concurrent_requests)
 
-    for i, (block_id, lines) in enumerate(block_lines.items()):
-        try:
-            summaries[block_id] = summarize_block(client, block_id, lines)
-        except Exception as e:
-            log.warning("Summarization failed for %s: %s", block_id, e)
-            summaries[block_id] = "[SUMMARIZATION_FAILED]"
+    log.info(
+        "Summarizing %d blocks with gpt-4o-mini using %d workers (max %d concurrent requests)...",
+        total, max_workers, max_concurrent_requests
+    )
 
-        if (i + 1) % 50 == 0 or (i + 1) == total:
-            elapsed = time.time() - t0
-            rate = (i + 1) / elapsed
-            eta = (total - i - 1) / rate if rate > 0 else 0
-            log.info(
-                "  [%d/%d] %.1f blocks/sec, ETA %.0fs",
-                i + 1, total, rate, eta,
-            )
+    def worker(item: tuple[str, list[str]]) -> tuple[str, str]:
+        block_id, lines = item
+        
+        # Acquire semaphore — only max_concurrent_requests can make API calls at once
+        with request_semaphore:
+            for attempt in range(1, retry_attempts + 1):
+                try:
+                    return block_id, summarize_block(client, block_id, lines)
+                except Exception as e:
+                    if attempt == retry_attempts:
+                        log.warning(
+                            "Summarization failed for %s after %d attempts: %s",
+                            block_id, retry_attempts, e
+                        )
+                        return block_id, "[SUMMARIZATION_FAILED]"
+                    time.sleep(retry_sleep_s * attempt)
+        return block_id, "[SUMMARIZATION_FAILED]"
+
+    with cf.ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = [ex.submit(worker, item) for item in block_lines.items()]
+        for fut in cf.as_completed(futures):
+            block_id, summary = fut.result()
+            summaries[block_id] = summary
+            done += 1
+
+            if done % 50 == 0 or done == total:
+                elapsed = time.time() - t0
+                rate = done / elapsed if elapsed > 0 else 0.0
+                eta = (total - done) / rate if rate > 0 else 0.0
+                log.info("  [%d/%d] %.1f blocks/sec, ETA %.0fs", done, total, rate, eta)
 
     failed = sum(1 for v in summaries.values() if v == "[SUMMARIZATION_FAILED]")
     log.info(
