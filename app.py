@@ -30,6 +30,7 @@ def main():
     clusters_file = data_path / "clusters.csv"
     embeddings_file = data_path / "embeddings.csv"
     summaries_file = data_path / "summaries.csv"
+    cluster_summaries_file = data_path / "cluster_summaries.csv" # Add this line
     
     if not clusters_file.exists():
         st.warning(f"Could not find `{clusters_file}`. Please run `cluster_pipeline.py` first, or check the folder path in the sidebar.")
@@ -50,6 +51,10 @@ def main():
         
     has_summaries = summaries_file.exists()
     df_summaries = pd.read_csv(summaries_file) if has_summaries else pd.DataFrame()
+    
+    # Add this block to load the cluster summaries
+    has_cluster_summaries = cluster_summaries_file.exists()
+    df_cluster_summaries = pd.read_csv(cluster_summaries_file) if has_cluster_summaries else pd.DataFrame()
 
     # 3. CALCULATE TRUE KPIs (Before Subsampling)
     n_total_blocks = len(df_clusters)
@@ -154,6 +159,13 @@ def main():
             options=sorted_clusters,
             format_func=lambda x: f"Noise (-1)" if x == -1 else f"Cluster {x}"
         )
+        
+        if has_cluster_summaries and not df_cluster_summaries.empty:
+            # Match cluster_id as strings in case of type mismatches between CSVs
+            c_summary_row = df_cluster_summaries[df_cluster_summaries['cluster_id'].astype(str) == str(selected_cid)]
+            if not c_summary_row.empty:
+                overall_summary = c_summary_row.iloc[0]['cluster_summary']
+                st.info(f"**Overall Cluster Analysis:**\n\n{overall_summary}")
         
         cluster_df = df[df["cluster_id"] == selected_cid]
         true_cluster_count = len(df_clusters[df_clusters["cluster_id"] == selected_cid])

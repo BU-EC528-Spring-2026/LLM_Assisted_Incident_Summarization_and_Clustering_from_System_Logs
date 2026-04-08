@@ -12,3 +12,11 @@ Slides Link: https://docs.google.com/presentation/d/1C3QZNC3eY1F_84iKXSxAU13xbw4
 Demo Video: https://streamable.com/i0evwz
 
 Demo Docs: [m2_demo_docs.md](m2_demo_docs.md)
+
+
+## Milestone 3:
+Slides Link: https://docs.google.com/presentation/d/1bbulsDZzPDu_EX6I4mMe4pq0A8bnwqpngWXAgb8LlHc/edit?usp=sharing
+
+Demo Video: https://www.youtube.com/watch?v=F-QMvl5y-0I
+
+Demo Docs [m3_demo_docs.md](m3_demo_docs.md)

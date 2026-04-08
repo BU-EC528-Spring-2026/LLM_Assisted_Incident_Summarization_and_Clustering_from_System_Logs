@@ -124,7 +124,8 @@ def group_logs_by_block(incidents: list[dict]) -> dict[str, list[str]]:
     block_lines: dict[str, list[str]] = {}
 
     for inc in incidents:
-        bid = inc.get("block_id")
+        # Check both group_key and block_id in case the schema changed 
+        bid = inc.get("block_id") or inc.get("group_key")
         if not bid:
             continue
 
