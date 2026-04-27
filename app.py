@@ -71,6 +71,18 @@ def main():
     else:
         df["summary"] = "No summary data available"
 
+    # Normalize anomaly indicator so UI always has consistent labels.
+    if "is_anomly" in df.columns:
+        df["is_anomly"] = (
+            pd.to_numeric(df["is_anomly"], errors="coerce")
+            .fillna(0)
+            .astype(int)
+            .clip(0, 1)
+        )
+    else:
+        df["is_anomly"] = 0
+    df["Anomaly Label"] = df["is_anomly"].map({0: "Not Anomaly", 1: "Anomaly"})
+
     # 5. SUBSAMPLE PER CLUSTER
     df = (
         df.groupby("cluster_id", group_keys=False)
@@ -107,12 +119,14 @@ def main():
                 fig = px.scatter(
                     df_viz,
                     x="x", y="y",
-                    color="Cluster Name",
-                    custom_data=["block_id", "summary", "cluster_id"], # Crucial for click events
+                    color="Anomaly Label",
+                    color_discrete_map={"Not Anomaly": "#1f77b4", "Anomaly": "#d62728"},
+                    custom_data=["block_id", "summary", "cluster_id", "Anomaly Label"], # Crucial for click events
                     hover_data={
                         "block_id": True, 
-                        "Cluster Name": False, 
-                        "cluster_id": False, 
+                        "Cluster Name": True,
+                        "Anomaly Label": True,
+                        "cluster_id": False,
                         "summary": False, # Hide on pure hover to keep it clean; relies on click
                         "x": False, "y": False
                     },
@@ -139,10 +153,11 @@ def main():
                         b_id = pt["customdata"][0]
                         b_sum = pt["customdata"][1]
                         c_id = pt["customdata"][2]
+                        a_label = pt["customdata"][3]
                         
                         # Show as an open expander for easy reading
                         c_desc = "Noise" if c_id == -1 else f"Cluster {c_id}"
-                        with st.expander(f"**Block ID**: {b_id} | {c_desc}", expanded=True):
+                        with st.expander(f"**Block ID**: {b_id} | {c_desc} | {a_label}", expanded=True):
                             st.write(b_sum)
 
             else:
@@ -173,7 +188,7 @@ def main():
         st.write(f"**Showing {len(cluster_df)} sampled blocks (out of {true_cluster_count} total blocks mapped to this cluster):**")
         
         for _, row in cluster_df.iterrows():
-            with st.expander(f"Block ID: {row['block_id']}"):
+            with st.expander(f"Block ID: {row['block_id']} | {row['Anomaly Label']}"):
                 st.write(row["summary"])
 
     with tab3:
