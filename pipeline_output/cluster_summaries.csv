@@ -1,0 +1,118 @@
+cluster_id,cluster_summary
+0,"### 🟢 OVERARCHING ANALYSIS: Cluster ID 0 — NO ANOMALY DETECTED
+
+---
+
+#### ✅ BLOCK-LEVEL ANALYSIS:
+- **All 50 blocks analyzed show normal, healthy behavior.**
+- Each block:
+  - Was **successfully received** from one or more sources.
+  - Was **replicated across 3 datanodes** (standard HDFS replication).
+  - Had **no errors, exceptions, retries, or failures** logged.
+  - Was **verified** (via PacketResponder termination, blockMap updates, DataBlockScanner, or verification logs).
+  - Was **integrity-checked and confirmed healthy**.
+  - Showed **consistent block size (67,108,864 bytes)** — aligned with HDFS block size (64 MB).
+  - No signs of corruption, under-replication, or network issues.
+
+---
+
+#### 📊 CLUSTER-LEVEL TRENDS:
+- **Uniform behavior**: All blocks behave identically — successful replication, no anomalies.
+- **No outliers**: No block shows signs of failure, timeout, or deletion.
+- **No pattern of failure**: No correlation between block ID, datanode, or timestamp suggesting a systemic issue.
+- **All blocks are healthy and fully replicated** — no data loss or inconsistency.
+
+---
+
+#### 🚫 ROOT CAUSE:
+> **There is no root cause — the system is operating as expected.**
+
+This cluster is exhibiting **perfectly normal HDFS behavior** — no anomalies, no failures, no warnings. The logs indicate a healthy, stable, and well-functioning distributed file system.
+
+---
+
+#### ⚠️ SEVERITY:
+> **LOW — No impact, no data loss, no system degradation.**
+
+No action is required. This is a **baseline, healthy cluster**.
+
+---
+
+#### 🛠️ RECOMMENDED ACTION:
+> **No action required.**  
+> Monitor for future anomalies, but no immediate intervention is needed.
+
+---
+
+### 📌 FINAL VERDICT:
+> **Cluster is healthy. No anomalies detected. No root cause. No action required.**
+
+This is not an anomaly cluster — it’s a **normal, stable, and well-replicated HDFS cluster**."
+1,"### 🚨 Cluster ID: 1 — Root Cause Analysis
+
+---
+
+#### **BLOCK-LEVEL ANALYSIS**
+All 51 blocks in this cluster experienced **write operation failures** during data ingestion. The dominant error is:
+
+> **`java.io.IOException: Could not read from stream`**
+
+This is consistently reported across all blocks, indicating a **systemic issue with data stream ingestion**, not isolated incidents.
+
+Additional errors include:
+- `SocketTimeoutException` (blk_-3102267849859399193)
+- `Connection reset by peer` (blk_-3102267849859399193)
+- `EOFException` (blk_-3102267849859399193)
+
+These suggest **network-level or transport-layer failures** during data transfer — not data corruption, but **transmission interruption**.
+
+---
+
+#### **CLUSTER-LEVEL TRENDS**
+- **All blocks failed to complete write operations** — no successful replication or completion logs.
+- **No retries** are logged for any block — indicating no automatic recovery or fallback.
+- **No successful blockMap updates** — blocks are not marked as “replicated” or “healthy”.
+- **No data loss indicators** — but **no integrity or consistency markers** either — suggesting **incomplete or failed state**.
+- **All blocks are under-replicated or inconsistent** — likely due to failed write operations.
+
+---
+
+#### **ROOT CAUSE**
+> **Network or transport layer instability during data ingestion**
+
+This is likely due to:
+- **Network partition or congestion** — causing timeouts or resets.
+- **Datanode or client-side I/O failure** — e.g., disk I/O errors, network interface drops.
+- **Misconfigured or overloaded network stack** — leading to stream read failures.
+- **Firewall or proxy interference** — blocking or corrupting data streams.
+
+The fact that *all* blocks show the same error pattern (read stream failure) strongly suggests a **common infrastructure issue**, not a data or application-level bug.
+
+---
+
+#### **SEVERITY**
+> **CRITICAL**
+
+- **Widespread failure** — 51 blocks affected.
+- **No recovery attempts** — no retries, no fallbacks.
+- **Potential data loss or under-replication** — blocks may be lost or inconsistent.
+- **No system-level alerts** — suggests this is a silent, unmonitored failure.
+
+---
+
+#### **RECOMMENDED ACTION**
+1. **Investigate network connectivity** between clients and datanodes — check for packet loss, timeouts, or resets.
+2. **Check datanode logs** for I/O errors, disk space, or resource exhaustion.
+3. **Verify network configuration** — firewalls, proxy rules, QoS settings.
+4. **Monitor network traffic** — look for spikes, drops, or anomalies during data transfer.
+5. **Check HDFS replication status** — verify if blocks are under-replicated or marked as corrupt.
+6. **Review client-side logs** — check if clients are timing out or failing to send data.
+7. **Consider rolling restarts** of datanodes or clients to clear transient state.
+
+---
+
+> ⚠️ **Immediate Priority**: Prevent further data loss by ensuring all pending writes are retried or recovered. This cluster is at risk of **data inconsistency or loss** without intervention.
+
+--- 
+
+✅ **Summary**: This cluster is experiencing **systemic network or transport-layer failures** during data ingestion, leading to **incomplete writes and potential data loss**. Immediate network and I/O diagnostics are required."

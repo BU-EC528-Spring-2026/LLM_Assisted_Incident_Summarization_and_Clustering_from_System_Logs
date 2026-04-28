@@ -48,6 +48,8 @@ import hdbscan
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
+import concurrent.futures as cf
+import threading
 
 from lof_inference import score_anomalies_with_lof
 
@@ -221,7 +223,8 @@ def group_logs_by_block(incidents: list[dict]) -> dict[str, list[str]]:
     block_lines: dict[str, list[str]] = {}
 
     for inc in incidents:
-        bid = inc.get("block_id")
+        # Check both group_key and block_id in case the schema changed 
+        bid = inc.get("block_id") or inc.get("group_key")
         if not bid:
             continue
         if bid not in block_lines:
@@ -317,31 +320,64 @@ def _summarize_one(
 
 
 def summarize_all_blocks(
-    client:       OpenAI,
-    block_lines:  dict[str, list[str]],
-    max_workers:  int = SUMMARIZE_MAX_WORKERS,
-    max_rpm:      int = SUMMARIZE_MAX_RPM,
-    progress_every: int = 50,
+    client: OpenAI,
+    block_lines: dict[str, list[str]],
+    max_workers: int = 8,
+    retry_attempts: int = 3,
+    retry_sleep_s: float = 1.5,
+    max_concurrent_requests: int = 8,
 ) -> dict[str, str]:
-    """
-    Summarize every block in `block_lines` using a bounded thread pool.
+    """Summarize all blocks in parallel with request throttling.
+    
+    Rate limit for OpenAI T1 is 500 Requests per Minute, 10,000 requests per day; max_workers = 8 seems to work
 
-    The OpenAI API is I/O-bound, so threads parallelize cleanly despite the
-    GIL — workers spend almost all their time waiting on HTTP responses.
+    If RPM is reached, reduce max_workers
 
-    Throughput is constrained by `max_rpm` (a sliding-window limiter) rather
-    than `max_workers`. With Tier 1 caps (200k TPM, 500 RPM) and ~1500
-    tok/call, the realistic sustained rate is ~120 RPM. `max_workers=8`
-    gives enough concurrency to saturate that.
-
-    A failed block is recorded as '[SUMMARIZATION_FAILED]' rather than
-    raising — keeps the run going if a few calls hit transient errors.
+    If RPD is reached (occurs if the pipeline is run again after running to full), should wait a day before retrying
     """
     summaries: dict[str, str] = {}
-    items = list(block_lines.items())
-    total = len(items)
-    if total == 0:
-        return summaries
+    total = len(block_lines)
+    done = 0
+    t0 = time.time()
+    
+    # Semaphore to limit concurrent API requests
+    request_semaphore = threading.Semaphore(max_concurrent_requests)
+
+    log.info(
+        "Summarizing %d blocks with gpt-4o-mini using %d workers (max %d concurrent requests)...",
+        total, max_workers, max_concurrent_requests
+    )
+
+    def worker(item: tuple[str, list[str]]) -> tuple[str, str]:
+        block_id, lines = item
+        
+        # Acquire semaphore — only max_concurrent_requests can make API calls at once
+        with request_semaphore:
+            for attempt in range(1, retry_attempts + 1):
+                try:
+                    return block_id, summarize_block(client, block_id, lines)
+                except Exception as e:
+                    if attempt == retry_attempts:
+                        log.warning(
+                            "Summarization failed for %s after %d attempts: %s",
+                            block_id, retry_attempts, e
+                        )
+                        return block_id, "[SUMMARIZATION_FAILED]"
+                    time.sleep(retry_sleep_s * attempt)
+        return block_id, "[SUMMARIZATION_FAILED]"
+
+    with cf.ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = [ex.submit(worker, item) for item in block_lines.items()]
+        for fut in cf.as_completed(futures):
+            block_id, summary = fut.result()
+            summaries[block_id] = summary
+            done += 1
+
+            if done % 50 == 0 or done == total:
+                elapsed = time.time() - t0
+                rate = done / elapsed if elapsed > 0 else 0.0
+                eta = (total - done) / rate if rate > 0 else 0.0
+                log.info("  [%d/%d] %.1f blocks/sec, ETA %.0fs", done, total, rate, eta)
 
     log.info("Summarizing %d blocks with gpt-4o-mini "
              "(workers=%d, RPM cap=%d)...", total, max_workers, max_rpm)

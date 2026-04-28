@@ -15,9 +15,13 @@ data/HDFS_1.tar
 data/HDFS_1.tar.gz.download/
 data/*.tar.gz
 data/*.tar
+data/chroma_db
 
 #results files
 results/
 
 # Jupyter
 .ipynb_checkpoints/
+
+.DS_Store
+env/
