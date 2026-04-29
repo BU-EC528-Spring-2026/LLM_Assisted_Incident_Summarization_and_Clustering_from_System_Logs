@@ -41,7 +41,7 @@ except ImportError:
 # AnythingLLM integration (same as your existing script)
 # =====================================================================
  
-ANYTHING_LLM_API_KEY = "8TMVQF0-7XNM1T5-N3F7PCS-73V75HJ"
+ANYTHING_LLM_API_KEY = "KBVF8D3-QRGMJE3-PGBVTW4-HMZAXTX"
 WORKSPACE_SLUG = "summarization"
 BASE_URL = "http://localhost:3001"
  
@@ -76,13 +76,23 @@ def load_clusters(csv_path: str) -> dict:
             clusters[cluster_id].append(block_id)
     return clusters
  
- 
+"""
 def load_summaries(json_path: str) -> dict:
-    """Load JSON: Block ID -> Individual Summary"""
     with open(json_path, "r") as f:
         return json.load(f)
+"""
  
- 
+def load_summaries(csv_path: str) -> dict:
+    """Load CSV: block_id, summary -> {block_id: summary_text}"""
+    summaries = {}
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            block_id = row["block_id"]
+            summary = row["summary"]
+            summaries[block_id] = summary
+    return summaries
+
 def build_prompt(cluster_id: str, block_ids: list, summaries: dict) -> str:
     """Build the same prompt you send to AnythingLLM."""
     block_details = ""
