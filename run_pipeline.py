@@ -178,7 +178,8 @@ def ingest_fluentbit(
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_cluster_pipeline(incidents_path: Path, out_dir: Path, model_name: str,
-                         mcs: int, ms: int, batch_size: int) -> None:
+                         mcs: int, ms: int, batch_size: int,
+                         lof_model_path: Path, skip_anomaly_detection: bool) -> None:
     from cluster_pipeline import run_pipeline, HDBSCAN_PARAMS
 
     params = {**HDBSCAN_PARAMS, "min_cluster_size": mcs, "min_samples": ms}
@@ -186,6 +187,8 @@ def run_cluster_pipeline(incidents_path: Path, out_dir: Path, model_name: str,
         incidents_path=str(incidents_path),
         out_dir=str(out_dir),
         model_name=model_name,
+        lof_model_path=str(lof_model_path),
+        skip_anomaly_detection=skip_anomaly_detection,
         hdbscan_params=params,
         batch_size=batch_size,
     )
@@ -288,6 +291,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--ms", type=int, default=20, help="HDBSCAN min_samples")
     p.add_argument("--batch-size", type=int, default=256)
 
+    # Anomaly detection (LOF)
+    p.add_argument("--lof-model", type=Path,
+                   default=REPO_ROOT / "src" / "lof_hdfs.joblib",
+                   help="Path to trained LOF bundle (.joblib) used by lof_inference")
+    p.add_argument("--skip-anomaly", action="store_true",
+                   help="Skip LOF anomaly scoring inside the cluster pipeline")
+
     # Skip flags
     p.add_argument("--skip-ingest", action="store_true",
                    help="Skip ingestion entirely (assumes --incidents already exists)")
@@ -345,6 +355,11 @@ def main() -> int:
     else:
         if not os.getenv("OPENAI_API_KEY"):
             log.warning("OPENAI_API_KEY is not set — block summarization will fail.")
+        if not args.skip_anomaly and not args.lof_model.exists():
+            log.warning("LOF model not found at %s — disabling anomaly detection. "
+                        "Train it via the LOF notebook or pass --lof-model <path>.",
+                        args.lof_model)
+            args.skip_anomaly = True
         run_cluster_pipeline(
             incidents_path=incidents_path,
             out_dir=args.out_dir,
@@ -352,6 +367,8 @@ def main() -> int:
             mcs=args.mcs,
             ms=args.ms,
             batch_size=args.batch_size,
+            lof_model_path=args.lof_model,
+            skip_anomaly_detection=args.skip_anomaly,
         )
 
     # 5. Cluster summaries
