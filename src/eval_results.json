@@ -1,0 +1,120 @@
+{
+  "aggregate": {
+    "faithfulness": {
+      "mean": 1.0,
+      "min": 1,
+      "max": 1,
+      "count": 1
+    },
+    "completeness": {
+      "mean": 1.0,
+      "min": 1,
+      "max": 1,
+      "count": 1
+    },
+    "conciseness": {
+      "mean": 1.0,
+      "min": 1,
+      "max": 1,
+      "count": 1
+    },
+    "actionability": {
+      "mean": 1.0,
+      "min": 1,
+      "max": 1,
+      "count": 1
+    }
+  },
+  "score_distribution": {
+    "faithfulness": {
+      "1": 1,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0
+    },
+    "completeness": {
+      "1": 1,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0
+    },
+    "conciseness": {
+      "1": 1,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0
+    },
+    "actionability": {
+      "1": 1,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0
+    }
+  },
+  "flagged_low_scores": [
+    {
+      "cluster_id": "0",
+      "dimension": "faithfulness",
+      "score": 1,
+      "justification": "There is no LLM summary to evaluate; the system returned an error with no content."
+    },
+    {
+      "cluster_id": "0",
+      "dimension": "completeness",
+      "score": 1,
+      "justification": "The summary is entirely absent, so no events, block statuses, or patterns from the input are captured."
+    },
+    {
+      "cluster_id": "0",
+      "dimension": "conciseness",
+      "score": 1,
+      "justification": "No summary was produced, so there is nothing concise or otherwise to evaluate."
+    },
+    {
+      "cluster_id": "0",
+      "dimension": "actionability",
+      "score": 1,
+      "justification": "Without any summary content, no root cause, severity, or next steps are provided for an engineer to act on."
+    }
+  ],
+  "num_evaluated": 1,
+  "num_errors": 1,
+  "per_cluster": [
+    {
+      "cluster_id": "0",
+      "num_blocks": 1108,
+      "summary": "[ERROR: No response from AnythingLLM]",
+      "scores": {
+        "faithfulness": {
+          "score": 1,
+          "justification": "There is no LLM summary to evaluate; the system returned an error with no content."
+        },
+        "completeness": {
+          "score": 1,
+          "justification": "The summary is entirely absent, so no events, block statuses, or patterns from the input are captured."
+        },
+        "conciseness": {
+          "score": 1,
+          "justification": "No summary was produced, so there is nothing concise or otherwise to evaluate."
+        },
+        "actionability": {
+          "score": 1,
+          "justification": "Without any summary content, no root cause, severity, or next steps are provided for an engineer to act on."
+        },
+        "overall_notes": "The summarizer returned an error and produced no output whatsoever. The evaluation cannot proceed meaningfully; the system failure itself should be investigated."
+      }
+    },
+    {
+      "cluster_id": "1",
+      "num_blocks": 51,
+      "summary": "[ERROR: No response from AnythingLLM]",
+      "scores": {
+        "error": "max_retries_exceeded"
+      }
+    }
+  ]
+}

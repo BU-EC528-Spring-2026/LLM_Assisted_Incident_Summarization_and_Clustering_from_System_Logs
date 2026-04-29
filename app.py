@@ -72,16 +72,15 @@ def main():
         df["summary"] = "No summary data available"
 
     # Normalize anomaly indicator so UI always has consistent labels.
-    if "is_anomly" in df.columns:
-        df["is_anomly"] = (
-            pd.to_numeric(df["is_anomly"], errors="coerce")
-            .fillna(0)
-            .astype(int)
-            .clip(0, 1)
-        )
+    if "is_anomaly" in df.columns:
+        df["is_anomaly"] = (
+        df["is_anomaly"].astype(str).str.lower()
+        .map({"true": 1, "false": 0, "1": 1, "0": 0})
+        .fillna(0).astype(int)
+    )
     else:
-        df["is_anomly"] = 0
-    df["Anomaly Label"] = df["is_anomly"].map({0: "Not Anomaly", 1: "Anomaly"})
+        df["is_anomaly"] = 0
+    df["Anomaly Label"] = df["is_anomaly"].map({0: "Not Anomaly", 1: "Anomaly"})
 
     # 5. SUBSAMPLE PER CLUSTER
     df = (
