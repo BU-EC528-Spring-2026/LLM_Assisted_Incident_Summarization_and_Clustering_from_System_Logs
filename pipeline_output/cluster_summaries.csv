@@ -1,118 +1,487 @@
 cluster_id,cluster_summary
-0,"### 🟢 OVERARCHING ANALYSIS: Cluster ID 0 — NO ANOMALY DETECTED
-
----
-
-#### ✅ BLOCK-LEVEL ANALYSIS:
-- **All 50 blocks analyzed show normal, healthy behavior.**
-- Each block:
-  - Was **successfully received** from one or more sources.
-  - Was **replicated across 3 datanodes** (standard HDFS replication).
-  - Had **no errors, exceptions, retries, or failures** logged.
-  - Was **verified** (via PacketResponder termination, blockMap updates, DataBlockScanner, or verification logs).
-  - Was **integrity-checked and confirmed healthy**.
-  - Showed **consistent block size (67,108,864 bytes)** — aligned with HDFS block size (64 MB).
-  - No signs of corruption, under-replication, or network issues.
-
----
-
-#### 📊 CLUSTER-LEVEL TRENDS:
-- **Uniform behavior**: All blocks behave identically — successful replication, no anomalies.
-- **No outliers**: No block shows signs of failure, timeout, or deletion.
-- **No pattern of failure**: No correlation between block ID, datanode, or timestamp suggesting a systemic issue.
-- **All blocks are healthy and fully replicated** — no data loss or inconsistency.
-
----
-
-#### 🚫 ROOT CAUSE:
-> **There is no root cause — the system is operating as expected.**
-
-This cluster is exhibiting **perfectly normal HDFS behavior** — no anomalies, no failures, no warnings. The logs indicate a healthy, stable, and well-functioning distributed file system.
-
----
-
-#### ⚠️ SEVERITY:
-> **LOW — No impact, no data loss, no system degradation.**
-
-No action is required. This is a **baseline, healthy cluster**.
-
----
-
-#### 🛠️ RECOMMENDED ACTION:
-> **No action required.**  
-> Monitor for future anomalies, but no immediate intervention is needed.
-
----
-
-### 📌 FINAL VERDICT:
-> **Cluster is healthy. No anomalies detected. No root cause. No action required.**
-
-This is not an anomaly cluster — it’s a **normal, stable, and well-replicated HDFS cluster**."
-1,"### 🚨 Cluster ID: 1 — Root Cause Analysis
+1,"### Cluster ID: 1 — Analysis Summary
 
 ---
 
 #### **BLOCK-LEVEL ANALYSIS**
-All 51 blocks in this cluster experienced **write operation failures** during data ingestion. The dominant error is:
-
-> **`java.io.IOException: Could not read from stream`**
-
-This is consistently reported across all blocks, indicating a **systemic issue with data stream ingestion**, not isolated incidents.
-
-Additional errors include:
-- `SocketTimeoutException` (blk_-3102267849859399193)
-- `Connection reset by peer` (blk_-3102267849859399193)
-- `EOFException` (blk_-3102267849859399193)
-
-These suggest **network-level or transport-layer failures** during data transfer — not data corruption, but **transmission interruption**.
+- **Dominant pattern**: All blocks show **termination of the PacketResponder** — a normal, expected end state for data transfer operations.
+- **No errors, exceptions, or warnings** are reported for any block — indicating **no operational failures or system-level anomalies**.
+- **No retries, failures, or inconsistencies** are logged — suggesting **successful or completed operations** without intervention or error handling.
+- **Some blocks are ambiguous** — e.g., “no indication of successful completion” or “may not have completed intended operations” — but **no evidence of corruption, under-replication, or data loss**.
+- **No block shows signs of network failure, timeout, or disk issues** — all logs are clean and consistent.
 
 ---
 
 #### **CLUSTER-LEVEL TRENDS**
-- **All blocks failed to complete write operations** — no successful replication or completion logs.
-- **No retries** are logged for any block — indicating no automatic recovery or fallback.
-- **No successful blockMap updates** — blocks are not marked as “replicated” or “healthy”.
-- **No data loss indicators** — but **no integrity or consistency markers** either — suggesting **incomplete or failed state**.
-- **All blocks are under-replicated or inconsistent** — likely due to failed write operations.
+- **All blocks are in a “healthy” or “normal completion” state** — no anomalies across the cluster.
+- **PacketResponder termination is the only recurring event** — but it is **not an error**, and **no system-wide failure is indicated**.
+- **No correlation with network, disk, or datanode issues** — no logs suggest resource exhaustion, timeouts, or node failures.
+- **No replication lag or under-replication** — no mention of missing replicas or failed acknowledgments.
 
 ---
 
 #### **ROOT CAUSE**
-> **Network or transport layer instability during data ingestion**
+> **No root cause — system is operating normally.**
 
-This is likely due to:
-- **Network partition or congestion** — causing timeouts or resets.
-- **Datanode or client-side I/O failure** — e.g., disk I/O errors, network interface drops.
-- **Misconfigured or overloaded network stack** — leading to stream read failures.
-- **Firewall or proxy interference** — blocking or corrupting data streams.
-
-The fact that *all* blocks show the same error pattern (read stream failure) strongly suggests a **common infrastructure issue**, not a data or application-level bug.
+The logs indicate **routine, expected behavior** — PacketResponder termination is a normal part of HDFS data transfer lifecycle. There is **no evidence of failure, degradation, or anomaly** in the system.
 
 ---
 
 #### **SEVERITY**
-> **CRITICAL**
+> **LOW**
 
-- **Widespread failure** — 51 blocks affected.
-- **No recovery attempts** — no retries, no fallbacks.
-- **Potential data loss or under-replication** — blocks may be lost or inconsistent.
-- **No system-level alerts** — suggests this is a silent, unmonitored failure.
+- No data loss, corruption, or system instability.
+- No operational impact on cluster availability or integrity.
+- No need for immediate intervention.
 
 ---
 
 #### **RECOMMENDED ACTION**
-1. **Investigate network connectivity** between clients and datanodes — check for packet loss, timeouts, or resets.
-2. **Check datanode logs** for I/O errors, disk space, or resource exhaustion.
-3. **Verify network configuration** — firewalls, proxy rules, QoS settings.
-4. **Monitor network traffic** — look for spikes, drops, or anomalies during data transfer.
-5. **Check HDFS replication status** — verify if blocks are under-replicated or marked as corrupt.
-6. **Review client-side logs** — check if clients are timing out or failing to send data.
-7. **Consider rolling restarts** of datanodes or clients to clear transient state.
+> **No action required.**
+
+- Monitor for **future anomalies** — if PacketResponder terminations start to correlate with errors, retries, or failed replication, investigate further.
+- **No corrective action** is needed — this is **expected, normal behavior**.
+- Consider **logging improvement** — current logs are too vague to detect meaningful anomalies (e.g., “no errors” is not actionable).
 
 ---
 
-> ⚠️ **Immediate Priority**: Prevent further data loss by ensuring all pending writes are retried or recovered. This cluster is at risk of **data inconsistency or loss** without intervention.
+✅ **Final Verdict**:  
+**Cluster is healthy. No anomalies detected. No root cause. No action required.**
+
+---"
+2,"**Cluster ID: 2 — Analysis Summary**
+
+---
+
+### 🔍 BLOCK-LEVEL ANALYSIS:
+All 50 blocks reviewed show **perfectly normal behavior**:
+- Each block was **successfully added to the block map**.
+- No errors, exceptions, or warnings were logged.
+- Block sizes are consistent (mostly 64 MB — 67,108,864 bytes).
+- No signs of retries, failures, under-replication, corruption, or inconsistencies.
+- Operations completed **normally and without incident**.
+
+---
+
+### 🌐 CLUSTER-LEVEL TRENDS:
+- **No anomalies detected** — all blocks are healthy and fully replicated.
+- **Uniform behavior** — all blocks follow the same pattern: successful allocation, storage, and mapping.
+- **No deviation from expected HDFS behavior** — no network, disk, or datanode issues indicated.
+
+---
+
+### 🧨 ROOT CAUSE:
+> **No root cause — system is operating normally.**
+
+There is **no evidence of failure, degradation, or anomaly** in this cluster. The logs indicate a healthy, stable, and well-functioning HDFS cluster.
+
+---
+
+### ⚠️ SEVERITY:
+> **LOW** — No data loss, corruption, or failure detected. No action required.
+
+---
+
+### 🛠️ RECOMMENDED ACTION:
+> **No action required.**  
+> Monitor for future anomalies, but this cluster is currently stable and healthy.
+
+---
+
+✅ **Conclusion**:  
+This cluster is **functioning as expected**. No anomalies, no root cause, no action needed."
+6,"**Cluster ID: 6 — Analysis Summary**
+
+---
+
+### 🔍 BLOCK-LEVEL ANALYSIS:
+All 50 blocks in this truncated sample show **perfectly normal behavior**:
+- **No errors, exceptions, or warnings** reported.
+- **Successful receipt and processing** — all blocks were received, validated, and stored.
+- **Consistent block size**: 67,108,864 bytes (64 MB) — typical HDFS block size.
+- **Healthy state** confirmed — no under-replication, corruption, loss, or inconsistency.
+- **No retries or failures** — operations completed cleanly.
+- **Replication confirmed** — though not explicitly stated for all, the “healthy state” and “no issues” imply proper replication.
+
+> **Note**: One block (blk_-3909548841543565741) is smaller (3.5MB), but still processed successfully — likely a non-standard block or metadata block — but no anomalies reported.
+
+---
+
+### 🌐 CLUSTER-LEVEL TRENDS:
+- **All blocks are healthy and operational** — no signs of failure, degradation, or anomaly.
+- **Uniform behavior** — consistent with normal HDFS cluster operation.
+- **No pattern of failure or error** — no exceptions, no timeouts, no network issues, no disk full, no replication lag.
+- **No indication of root cause** — no logs suggest infrastructure, network, or storage issues.
+
+---
+
+### 🧨 ROOT CAUSE:
+> **No root cause detected — system is operating normally.**
+
+This cluster is exhibiting **expected, healthy, and stable behavior**. There is no evidence of failure, corruption, or systemic issue.
+
+---
+
+### ⚠️ SEVERITY:
+> **LOW** — All blocks are healthy, no data loss or corruption, no operational impact.
+
+---
+
+### 🛠️ RECOMMENDED ACTION:
+> **No action required.**  
+> This cluster is functioning as expected. Monitor for future anomalies, but no immediate intervention is needed.
+
+---
+
+✅ **Conclusion**:  
+Cluster ID 6 is **stable and healthy**. No anomalies detected. No root cause. No action required."
+7,"**Cluster ID: 7 — Analysis Summary**
+
+---
+
+### 🔍 BLOCK-LEVEL ANALYSIS:
+All 50 blocks reviewed show **normal, healthy, and successful operations**. Each block:
+- Was **received successfully** with **no errors, exceptions, or warnings**.
+- Completed operations **normally**, indicating **no retries, failures, or anomalies**.
+- Was **stored in a consistent state** with no signs of corruption, under-replication, or network issues.
+- No unusual patterns or deviations from expected HDFS behavior were observed.
+
+---
+
+### 🌐 CLUSTER-LEVEL TRENDS:
+- **Uniform behavior**: All blocks exhibit identical operational patterns — successful receipt, normal processing, healthy state.
+- **No anomalies**: No logs indicate network failures, timeouts, disk issues, or replication lag.
+- **No degradation**: No signs of performance degradation, data loss, or system instability.
+- **No root cause indicators**: No exceptions like `SocketTimeoutException`, `OutOfMemoryError`, `DiskFull`, or `NodeDown` are present.
+
+---
+
+### 🧨 ROOT CAUSE:
+> **No root cause detected — system is operating normally.**
+
+This cluster is exhibiting **perfectly healthy HDFS behavior**. There is no evidence of failure, misconfiguration, or infrastructure issue.
+
+---
+
+### ⚠️ SEVERITY:
+> **LOW**
+
+- No data loss or corruption.
+- No operational degradation.
+- No need for intervention or investigation.
+
+---
+
+### 🛠️ RECOMMENDED ACTION:
+> **No action required.**  
+> Monitor for future anomalies, but this cluster is stable and functioning as expected.
+
+---
+
+✅ **Final Verdict**:  
+**Cluster 7 is healthy and stable. No anomalies detected.**"
+8,"**Cluster ID: 8 — Analysis Summary**
+
+---
+
+### 🔍 BLOCK-LEVEL ANALYSIS:
+All 50 blocks listed show **identical behavior**:  
+> “Successfully allocated without any errors or warnings. The operation completed normally, indicating that the block is healthy and in a consistent state.”
+
+No exceptions, retries, failures, or anomalies are reported.  
+No signs of corruption, under-replication, timeouts, or network issues.  
+All blocks appear to be in a **stable, healthy, and fully operational** state.
+
+---
+
+### 🌐 CLUSTER-LEVEL TRENDS:
+- **Uniform behavior**: Every block shows the same pattern — successful allocation, no errors, no retries.
+- **No anomalies**: No deviations from expected HDFS behavior.
+- **No data loss or corruption indicators**: No mention of failed writes, timeouts, or invalid block states.
+- **No network or infrastructure issues**: No logs suggest connectivity, disk, or node failures.
+
+---
+
+### 🧨 ROOT CAUSE:
+> **No root cause — system is operating normally.**
+
+This cluster is exhibiting **perfectly healthy and expected behavior**. There is no evidence of failure, degradation, or anomaly. The logs are consistent with routine HDFS operations — likely normal data allocation during a steady state.
+
+---
+
+### ⚠️ SEVERITY:
+> **LOW**
+
+- No data loss or corruption.
+- No performance degradation.
+- No infrastructure issues.
+- No need for intervention.
+
+---
+
+### 🛠️ RECOMMENDED ACTION:
+> **No action required.**  
+> Monitor for future anomalies or spikes in activity.  
+> If this cluster is part of a larger system, ensure it remains in sync with other clusters — but no immediate corrective action is needed.
+
+---
+
+✅ **Final Verdict**:  
+**Cluster 8 is healthy and stable. No anomalies detected.**"
+4,"**Cluster ID: 4 — Analysis Summary**
+
+---
+
+### 🔍 BLOCK-LEVEL ANALYSIS:
+All 50 blocks listed were **deleted successfully** with **no errors, exceptions, warnings, retries, or inconsistencies** reported.  
+- No signs of corruption, under-replication, or data loss.
+- No network, disk, or datanode failures indicated.
+- All deletions were **routine**, **non-urgent**, and **completed cleanly**.
+
+---
+
+### 🌐 CLUSTER-LEVEL TRENDS:
+- **All blocks were removed** — no blocks were retained or corrupted.
+- **No anomalies** — no logs indicate failures, timeouts, or replication issues.
+- **Uniform behavior** — every block deletion was handled identically, with no variation in outcome or logs.
+- **No indication of system-wide failure** — no logs suggest a cluster-wide issue (e.g., disk full, network partition, datanode crash).
+
+---
+
+### 🧨 ROOT CAUSE:
+> **No root cause detected — this is normal operational behavior.**
+
+The logs indicate **routine deletion operations** — likely part of:
+- Filesystem cleanup
+- Data lifecycle management
+- Scheduled or manual removal of obsolete or unused blocks
+
+There is **no evidence of failure, corruption, or infrastructure issue**.
+
+---
+
+### ⚠️ SEVERITY:
+> **LOW**
+
+- No data loss or corruption.
+- No system instability or performance degradation.
+- All deletions completed cleanly and without side effects.
+
+---
+
+### 🛠️ RECOMMENDED ACTION:
+> **No action required.**
+
+This cluster is operating normally.  
+If this is part of a larger anomaly investigation, consider:
+- Checking if these deletions are part of a scheduled cleanup job.
+- Verifying if the deletions are associated with user requests or system maintenance.
+- Monitoring for any *future* anomalies — if deletions start failing or causing inconsistencies, then investigate further.
+
+---
+
+✅ **Conclusion**:  
+This cluster is **healthy and stable**. The observed behavior is **expected and normal** — no anomalies or root causes to investigate."
+0,"### 🚨 OVERARCHING ROOT CAUSE:  
+**Cluster-wide serving failures due to unhandled exceptions during data retrieval — likely indicating a systemic issue in the DataNode or NameNode serving logic, possibly involving network, client, or protocol instability.**
+
+---
+
+### 🔍 Key Observations:
+
+- **All 50+ blocks report “exception while being served”** — no specific exception type is logged (e.g., `IOException`, `Timeout`, `ConnectionReset`, etc.), which is a red flag.
+- **No retries or recovery attempts** are logged — suggesting the system did not attempt to recover or reattempt the operation.
+- **No indication of replication or consistency checks** — meaning the block may be in an *inconsistent* or *unreplicated* state.
+- **No evidence of data corruption or deletion** — the blocks were *received successfully* before serving failed, implying the issue is **not with storage integrity**, but with **access or serving logic**.
+- **No pattern of network or disk failure** — no timeouts, disk full, or connection resets mentioned.
+- **No client-side errors** — no indication of client-side failures (e.g., malformed requests, timeouts, etc.).
+
+---
+
+### 🧩 Pattern Analysis:
+
+This is **not** a transient or isolated issue — it’s a **systemic, recurring problem** affecting *all* blocks being served. The fact that the *same type of error* occurs across 80 blocks (with no variation in error type) suggests:
+
+> **The root cause is likely a bug or misconfiguration in the serving logic of the DataNode or NameNode**, possibly:
+> - A **protocol handler bug** (e.g., failed to parse or validate client requests).
+> - A **resource exhaustion** (e.g., memory, threads, or file handles) during serving.
+> - A **client-side or network-level issue** that is *not* being properly handled by the server (e.g., client disconnects, malformed data, etc.).
+> - A **misconfigured or broken replication pipeline** — perhaps the block was replicated successfully, but the *serving* logic failed to handle it.
+
+---
+
+### ⚠️ Severity: **HIGH**
+
+- **No recovery** — blocks are not being re-served or re-replicated.
+- **No logs of successful operations** — no evidence that the system ever *completed* serving.
+- **No indication of data loss** — but *inconsistency* is likely.
+- **Risk of under-replication** — if the block is not being served, it may not be replicated to other nodes.
+
+---
+
+### 🛠️ Recommended Action:
+
+1. **Check DataNode logs** for:
+   - Thread dumps or stack traces during serving.
+   - Resource usage (CPU, memory, file handles).
+   - Any exceptions in the `DataNode` or `NameNode` logs during serving.
+
+2. **Check client-side logs** for:
+   - Client-side exceptions during data retrieval.
+   - Network timeouts or connection resets.
+
+3. **Verify replication status** for affected blocks:
+   - Use `hdfs fsck` to check if blocks are under-replicated.
+   - Check if blocks are marked as “corrupted” or “invalid”.
+
+4. **Review protocol handlers**:
+   - Are there any custom or third-party handlers modifying the serving logic?
+   - Is there a known bug in the HDFS protocol handler?
+
+5. **Check for network or client-side issues**:
+   - Are clients using outdated or incompatible versions?
+   - Is there a network partition or firewall blocking connections?
+
+---
+
+### ✅ Summary:
+
+> This cluster is experiencing **systemic serving failures** — likely due to a **bug or misconfiguration in the serving logic** — not a network, disk, or client issue. The lack of retries or recovery suggests the system is **not handling errors gracefully**, leading to **potential under-replication or data inconsistency**.
+
+> **Immediate action required** to investigate the serving logic and ensure data integrity.
 
 --- 
 
-✅ **Summary**: This cluster is experiencing **systemic network or transport-layer failures** during data ingestion, leading to **incomplete writes and potential data loss**. Immediate network and I/O diagnostics are required."
+> 🚨 **Priority: High — Investigate serving logic and resource usage.**"
+3,"**Overarching Root Cause / Pattern:**
+
+> **Cluster-wide block invalidation without operational failure or error — likely due to manual deletion, metadata corruption, or system misconfiguration.**
+
+---
+
+### Supporting Analysis:
+
+- **All 50 blocks are marked as “invalid” and added to the invalid set** — this is a *system-level* state change, not a result of operational errors (e.g., network failures, timeouts, corruption).
+
+- **No errors, exceptions, or warnings** are logged for any of these blocks — indicating that **no failure occurred during write, read, or replication**. The invalidation happened *independently* of any operational anomaly.
+
+- **No retries or failures** are mentioned — suggesting that **no recovery or retry mechanism was triggered**. This implies the invalidation was not caused by a transient failure.
+
+- **No consistent pattern of failure type** — no indication of disk full, network partition, or replication lag. All blocks are of varying IDs, sizes, and datanode associations — no clustering of failure types.
+
+- **No indication of cascading effects** — no logs suggest that invalidation triggered other blocks to be marked invalid or that it caused cluster-wide instability.
+
+- **Possible causes**:
+  - **Manual deletion** via HDFS CLI or API (e.g., `hdfs dfs -rm -r /path/to/file`)
+  - **Metadata corruption** (e.g., NameNode metadata inconsistency)
+  - **Misconfiguration** (e.g., incorrect block replication policy, stale block map)
+  - **System maintenance or cleanup** (e.g., expired or orphaned blocks being purged)
+
+---
+
+### Conclusion:
+
+This cluster is **not experiencing a failure or anomaly** — it is **losing blocks without operational context**. The root cause is **not a system-level failure**, but rather **a deliberate or unintended removal of blocks from the active dataset**.
+
+> **Root Cause: Manual or automated deletion of blocks, or metadata corruption leading to invalidation.**
+
+---
+
+### Severity:
+
+> **HIGH** — 50+ blocks are marked invalid, which may indicate data loss or metadata inconsistency. Without investigation, this could lead to data unavailability or confusion in downstream systems.
+
+---
+
+### Recommended Action:
+
+> **Investigate:**
+> - Check for recent manual deletion commands or scripts that may have targeted these blocks.
+> - Review NameNode logs for metadata corruption or inconsistent block state.
+> - Check for recent cluster maintenance or cleanup scripts.
+> - Verify if these blocks are part of a known test or staging dataset that was intentionally deleted.
+> - Run `hdfs fsck` to check for orphaned or invalid blocks and assess if any are recoverable.
+
+> **If metadata corruption is suspected, consider NameNode checkpointing or metadata recovery.**
+
+> **If deletion is intentional, document and confirm — otherwise, restore or investigate further.**"
+5,"**Overarching Root Cause:**
+
+> **Cluster-wide block invalidation without operational error logs — indicating a systemic or configuration-driven data integrity issue, possibly due to manual deletion, corrupted metadata, or NameNode metadata corruption.**
+
+---
+
+### Analysis:
+
+- **Dominant Pattern**:  
+  All 50+ blocks in this cluster were **explicitly marked as invalid** by the NameNode and added to the `invalidSet`.  
+  → This is **not** a result of operational failures (e.g., timeouts, network errors, corruption during write).  
+  → There are **no logs of errors, exceptions, retries, or failures** preceding the invalidation.
+
+- **No Operational Context**:  
+  Each block’s log entry states:  
+  > “There are no indications of errors, exceptions, or warnings related to this block’s operations prior to its invalidation.”  
+  → This suggests the invalidation was **not triggered by system-level failures**, but rather by **manual intervention, metadata corruption, or misconfiguration**.
+
+- **Inconsistent State**:  
+  All blocks are now **invalid**, meaning they are **not accessible or usable** by the system.  
+  → No replication, no recovery, no retry attempts — **no system attempt to fix or recover**.
+
+- **Cluster-Level Anomaly**:  
+  This is not an isolated incident — **50+ blocks** were invalidated in a **uniform, silent manner**.  
+  → This suggests a **systemic issue**, such as:
+  - A **NameNode metadata corruption** or **metadata inconsistency**.
+  - A **manual or automated script** that invalidated blocks (e.g., cleanup, deletion, or misconfigured policy).
+  - A **configuration drift** or **policy misapplication** (e.g., “delete all blocks older than X”).
+  - A **bug in the NameNode’s invalidation logic** that marks blocks as invalid without logging or justification.
+
+---
+
+### Conclusion:
+
+> The cluster is experiencing **silent, mass invalidation of blocks without operational error logs**, indicating a **systemic metadata or configuration issue** — likely **NameNode metadata corruption or misconfiguration** — that has led to **data loss or unrecoverable inconsistency**.
+
+---
+
+### Recommended Next Steps:
+
+1. **Check NameNode metadata logs** — look for:
+   - Unexpected `invalidSet` updates.
+   - Metadata corruption warnings.
+   - Recent configuration changes or script executions.
+
+2. **Review recent cluster operations** — check:
+   - Any scripts or tools that may have invalidated blocks.
+   - Recent HDFS configuration changes (e.g., `dfs.datanode.data.dir`, `dfs.replication`, `dfs.namenode.checkpoint.dir`).
+
+3. **Verify block replication status** — check if blocks are under-replicated or corrupted:
+   - Use `hdfs fsck /` to check for missing or invalid blocks.
+   - Check if blocks are marked as “under-replicated” or “corrupted” — if not, this may indicate metadata corruption.
+
+4. **Check for manual or automated deletion scripts** — look for:
+   - Scripts that delete or mark blocks as invalid.
+   - Cron jobs or scheduled tasks that may have run.
+
+5. **Backup and restore metadata** — if metadata is corrupted, consider:
+   - Restoring from a backup.
+   - Rebuilding the NameNode metadata (if safe).
+
+---
+
+### Severity:
+
+> **CRITICAL** — Widespread block invalidation without operational logs suggests **data loss or unrecoverable inconsistency**.  
+> If these blocks are part of active datasets, **data integrity is compromised**.
+
+---
+
+### Summary:
+
+> The cluster is experiencing **silent, mass invalidation of blocks** — likely due to **NameNode metadata corruption or misconfiguration**.  
+> No operational errors were logged — this is a **systemic issue requiring immediate metadata inspection and recovery**.  
+> **CRITICAL — data loss or unrecoverable inconsistency is likely.**
+
+--- 
+
+**Action Required**:  
+Investigate NameNode metadata, recent configuration changes, and automated scripts. Restore or rebuild metadata if necessary."
