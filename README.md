@@ -22,7 +22,7 @@ Demo Video: https://www.youtube.com/watch?v=F-QMvl5y-0I
 Demo Docs [m3_demo_docs.md](m3_demo_docs.md)
 
 ## Milestone 4
-Slides Link:
+Slides Link: https://docs.google.com/presentation/d/1KcG4gEvXRLuM3OJZ9sf0MQ36oaVxP_TB30QeQ-5ddMw/edit?usp=sharing
 
 Demo Video:
 
