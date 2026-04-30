@@ -205,7 +205,7 @@ def run_cluster_summaries(out_dir: Path) -> None:
     SUMM_API_KEY in the environment / .env.
     """
     import csv
-    from Summarizationllm import load_clusters, load_summaries, analyze_cluster
+    from Summarizationllm import load_clusters, load_summaries, build_prompt, chat
 
     clusters_csv = out_dir / "clusters.csv"
     summaries_csv = out_dir / "summaries.csv"
@@ -222,15 +222,28 @@ def run_cluster_summaries(out_dir: Path) -> None:
 
     with open(output_csv, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file)
-        writer.writerow(["cluster_id", "cluster_summary"])
+        writer.writerow(["cluster_id", "num_blocks", "cluster_summary"])
 
-        for cluster_id, block_ids in clusters.items():
+        # Sort: real clusters first (by id), noise (-1) last
+        ordered = sorted(
+            clusters.items(),
+            key=lambda kv: (str(kv[0]) == "-1", str(kv[0])),
+        )
+
+        for cluster_id, block_ids in ordered:
             if str(cluster_id) == "-1":
-                log.info("Skipping noise cluster (-1)")
+                log.info("Skipping noise cluster (-1, %d blocks)", len(block_ids))
                 continue
             log.info("Summarizing cluster %s (%d blocks)...", cluster_id, len(block_ids))
-            result = analyze_cluster(cluster_id, block_ids, summaries)
-            writer.writerow([cluster_id, result if result is not None else ""])
+            prompt = build_prompt(cluster_id, block_ids, summaries)
+            try:
+                llm_output = chat(prompt)
+            except Exception as e:
+                log.warning("  cluster %s failed: %s", cluster_id, e)
+                llm_output = None
+            if not llm_output:
+                llm_output = "[ERROR: No response from AnythingLLM]"
+            writer.writerow([cluster_id, len(block_ids), llm_output])
 
     log.info("Cluster summaries → %s", output_csv)
 
