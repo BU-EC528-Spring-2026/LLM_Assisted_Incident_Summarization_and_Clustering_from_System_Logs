@@ -379,32 +379,7 @@ def summarize_all_blocks(
                 eta = (total - done) / rate if rate > 0 else 0.0
                 log.info("  [%d/%d] %.1f blocks/sec, ETA %.0fs", done, total, rate, eta)
 
-    log.info("Summarizing %d blocks with gpt-4o-mini "
-             "(workers=%d, RPM cap=%d)...", total, max_workers, max_rpm)
-    limiter   = _RateLimiter(max_rpm)
-    completed = 0
-    failed    = 0
-    t0        = time.time()
-
-    with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        futures = [
-            ex.submit(_summarize_one, client, bid, lines, limiter)
-            for bid, lines in items
-        ]
-        for fut in as_completed(futures):
-            bid, summary = fut.result()
-            summaries[bid] = summary
-            completed += 1
-            if summary == "[SUMMARIZATION_FAILED]":
-                failed += 1
-
-            if completed % progress_every == 0 or completed == total:
-                elapsed = time.time() - t0
-                rate    = completed / elapsed if elapsed > 0 else 0.0
-                eta     = (total - completed) / rate if rate > 0 else 0
-                log.info("  [%d/%d] %.1f blocks/sec, ETA %.0fs",
-                         completed, total, rate, eta)
-
+    failed = sum(1 for v in summaries.values() if v == "[SUMMARIZATION_FAILED]")
     log.info("Summarization done in %.0fs — %d succeeded, %d failed",
              time.time() - t0, total - failed, failed)
     return summaries
@@ -551,7 +526,6 @@ def run_pipeline(
     summaries = summarize_all_blocks(
         client, block_lines,
         max_workers=summarize_workers,
-        max_rpm=summarize_rpm,
     )
 
     # 4. Embed summaries
