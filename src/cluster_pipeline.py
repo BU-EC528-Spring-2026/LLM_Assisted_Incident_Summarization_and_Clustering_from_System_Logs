@@ -475,6 +475,8 @@ def run_pipeline(
     model_name: str = "nomic-ai/nomic-embed-text-v1.5",
     lof_model_path: str = DEFAULT_LOF_MODEL,
     skip_anomaly_detection: bool = False,
+    anomaly_threshold_override: float | None = None,
+    anomaly_percentile: float | None = None,
     demo_balance: Optional[int] = None,
     demo_label_csv: str = DEFAULT_LABEL_CSV,
     demo_healthy_frac: float = 0.60,
@@ -556,6 +558,8 @@ def run_pipeline(
         try:
             df_clusters = score_anomalies_with_lof(
                 df_embeddings, df_clusters, lof_model_path,
+                threshold_override=anomaly_threshold_override,
+                anomaly_percentile=anomaly_percentile,
             )
         except FileNotFoundError as e:
             log.warning("%s", e)

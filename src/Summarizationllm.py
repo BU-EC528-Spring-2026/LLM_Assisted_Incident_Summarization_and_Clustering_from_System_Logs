@@ -40,10 +40,18 @@ except ImportError:
 # =====================================================================
 # AnythingLLM integration (same as your existing script)
 # =====================================================================
- 
-ANYTHING_LLM_API_KEY = "KBVF8D3-QRGMJE3-PGBVTW4-HMZAXTX"
-WORKSPACE_SLUG = "summarization"
-BASE_URL = "http://localhost:3001"
+
+# Pull the API key from .env (SUMM_API_KEY) so it can be rotated without
+# editing source. Falls back to the legacy hardcoded value if unset.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+ANYTHING_LLM_API_KEY = os.getenv("SUMM_API_KEY", "KBVF8D3-QRGMJE3-PGBVTW4-HMZAXTX")
+WORKSPACE_SLUG = os.getenv("SUMM_WORKSPACE_SLUG", "summarization")
+BASE_URL = os.getenv("SUMM_BASE_URL", "http://localhost:3001")
  
  
 def chat(message: str) -> str:

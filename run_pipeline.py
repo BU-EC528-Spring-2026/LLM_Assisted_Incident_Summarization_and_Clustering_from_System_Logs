@@ -179,7 +179,9 @@ def ingest_fluentbit(
 
 def run_cluster_pipeline(incidents_path: Path, out_dir: Path, model_name: str,
                          mcs: int, ms: int, batch_size: int,
-                         lof_model_path: Path, skip_anomaly_detection: bool) -> None:
+                         lof_model_path: Path, skip_anomaly_detection: bool,
+                         anomaly_threshold: float | None,
+                         anomaly_percentile: float | None) -> None:
     from cluster_pipeline import run_pipeline, HDBSCAN_PARAMS
 
     params = {**HDBSCAN_PARAMS, "min_cluster_size": mcs, "min_samples": ms}
@@ -189,6 +191,8 @@ def run_cluster_pipeline(incidents_path: Path, out_dir: Path, model_name: str,
         model_name=model_name,
         lof_model_path=str(lof_model_path),
         skip_anomaly_detection=skip_anomaly_detection,
+        anomaly_threshold_override=anomaly_threshold,
+        anomaly_percentile=anomaly_percentile,
         hdbscan_params=params,
         batch_size=batch_size,
     )
@@ -310,6 +314,12 @@ def parse_args() -> argparse.Namespace:
                    help="Path to trained LOF bundle (.joblib) used by lof_inference")
     p.add_argument("--skip-anomaly", action="store_true",
                    help="Skip LOF anomaly scoring inside the cluster pipeline")
+    p.add_argument("--anomaly-threshold", type=float, default=None,
+                   help="Override the LOF score threshold baked into the bundle. "
+                        "Use when live data drifts from training distribution.")
+    p.add_argument("--anomaly-percentile", type=float, default=None,
+                   help="Flag top (100 - p)%% of LOF scores as anomalous "
+                        "(e.g. 95 = top 5%%). Mutually exclusive with --anomaly-threshold.")
 
     # Skip flags
     p.add_argument("--skip-ingest", action="store_true",
@@ -382,6 +392,8 @@ def main() -> int:
             batch_size=args.batch_size,
             lof_model_path=args.lof_model,
             skip_anomaly_detection=args.skip_anomaly,
+            anomaly_threshold=args.anomaly_threshold,
+            anomaly_percentile=args.anomaly_percentile,
         )
 
     # 5. Cluster summaries
